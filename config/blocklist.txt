@@ -1,0 +1,21 @@
+# One phrase per line, lower case. A message containing any of these is rejected.
+# Common profanity is already censored with asterisks by the obscenity library;
+# use this file for scams, impersonation and anything else you want kept out.
+# Reload without restarting: POST /admin/reload-blocklist with your ADMIN_TOKEN.
+airdrop claim
+claim airdrop
+free airdrop
+dm me
+dm for
+send sol
+send eth
+seed phrase
+private key
+wallet connect
+walletconnect
+giveaway
+official ca
+real ca
+new ca
+migrated
+migration

@@ -1,0 +1,25 @@
+# Render Blueprint: New -> Blueprint -> pick this repo.
+services:
+  - type: web
+    name: talk-to-the-worm
+    runtime: node
+    plan: starter          # free instances sleep after 15 idle minutes and the worm restarts
+    numInstances: 1        # must stay 1: the worm lives in this process
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: TRUST_PROXY
+        value: "1"
+      - key: ADMIN_TOKEN
+        generateValue: true
+      - key: SITE_TICKER
+        sync: false
+      - key: SITE_CONTRACT
+        sync: false
+      - key: SITE_LINKS
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false

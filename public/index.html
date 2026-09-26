@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Talk to the Worm</title>
+<meta name="description" content="One live marine worm larva brain, wired exactly as published. Type a message it sees as light, or poke it. Everyone watching sees the same worm react.">
+<meta property="og:title" content="Talk to the Worm">
+<meta property="og:description" content="A real larva connectome running live. Talk to it, poke it, watch 2,675 cells react.">
+<meta name="theme-color" content="#04070B">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">
+      <span class="live status" id="status" data-mode="connecting">Connecting</span>
+      <span id="watchers">·</span>
+      <span>Platynereis dumerilii · 3-day-old larva · whole-body connectome</span>
+    </div>
+    <h1>Talk to the <em>Worm</em></h1>
+    <p class="lede">Every dot is a real cell from an electron-microscopy map of a marine worm larva, wired exactly as published. <b>There is one worm, and everyone here is looking at it.</b> Type a message and it's shown to the worm's eyes as light. Tap its body to poke it.</p>
+    <div class="token" id="token" hidden></div>
+  </header>
+
+  <div class="grid">
+    <div class="stage" id="stage">
+      <canvas id="brain" aria-label="3D map of the larva's cells lighting up with live activity"></canvas>
+      <div class="hud tl">Head ↑<br><span class="hint">Tap body to poke · drag to turn</span></div>
+      <div class="hud tr">Step <b id="hudstep">0</b><br><b id="hudcells">0</b> cells firing</div>
+      <div class="hud bl">L</div>
+      <div class="hud br">R</div>
+      <div id="tip" hidden></div>
+    </div>
+
+    <div class="side">
+      <section class="card" aria-labelledby="talkh">
+        <h2 id="talkh">Say something <span>→ light on its eyes</span></h2>
+        <form id="talk" autocomplete="off">
+          <input type="text" id="msg" maxlength="40" placeholder="gm worm" aria-label="Message to show the worm">
+          <button class="btn-amber" type="submit">Shine it</button>
+        </form>
+        <div class="toast" id="toast" role="status" aria-live="polite"></div>
+        <div class="chips" id="chips">
+          <button class="chip" type="button">gm</button>
+          <button class="chip" type="button">wagmi</button>
+          <button class="chip" type="button">ser pls</button>
+          <button class="chip" type="button">LFG</button>
+          <button class="chip" type="button" title="Solid light: floods its light sensors">█████</button>
+        </div>
+        <div class="view">
+          <div class="nowplaying"><span id="nowtext">Eyes: dark</span><span id="queuetext"></span></div>
+          <canvas id="eyeview" width="600" height="100" aria-label="What the worm's eyes are seeing right now"></canvas>
+          <div class="prcs">
+            <div class="prcrow" id="prcL"></div><div class="mid">L | R</div><div class="prcrow r" id="prcR"></div>
+          </div>
+          <div class="hint2">Everyone watching sees your message. No links or wallet addresses.</div>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="acth">
+        <h2 id="acth">Activity <span>live</span></h2>
+        <div class="big"><output id="ncells">0</output><span>of 2,675 cells firing</span></div>
+        <canvas id="spark" width="600" height="92" aria-hidden="true"></canvas>
+        <div class="meter">
+          <div class="lab"><span>Body-wall muscles</span><b id="bendtxt">even</b></div>
+          <div class="bar lr"><i id="bendbar"></i></div>
+          <div class="ends"><span>left side</span><span>right side</span></div>
+        </div>
+        <div class="meter">
+          <div class="lab"><span>Ciliary bands (swimming)</span><b id="ciltxt">even</b></div>
+          <div class="bar lr"><i id="cilbar"></i></div>
+          <div class="ends"><span>left side</span><span>right side</span></div>
+        </div>
+        <div class="meter">
+          <div class="lab"><span>Startle muscles (chaetae, parapodia)</span><b id="sttxt">0%</b></div>
+          <div class="bar"><i id="stbar"></i></div>
+        </div>
+        <button class="btn-ghost" type="button" id="pokebtn">Poke a random spot</button>
+      </section>
+
+      <section class="card" aria-labelledby="feedh">
+        <h2 id="feedh">Live feed <span id="feedcount"></span></h2>
+        <ul id="feed"><li class="empty">Nothing yet. Say something.</li></ul>
+      </section>
+    </div>
+  </div>
+
+  <div class="legend" aria-label="Colour key">
+    <span><i class="k-eye"></i>eye photoreceptors (26)</span>
+    <span><i class="k-touch"></i>touch sensors (57)</span>
+    <span><i class="k-sn"></i>other sensory neurons</span>
+    <span><i class="k-in"></i>interneurons</span>
+    <span><i class="k-mn"></i>motor neurons</span>
+    <span><i class="k-mus"></i>muscles</span>
+    <span><i class="k-cil"></i>ciliated swimming cells</span>
+    <span><i class="k-other"></i>glands, glia, pigment</span>
+  </div>
+
+  <section class="method" aria-label="How this works">
+    <div>
+      <span class="tag real">Real</span>
+      <h3>The wiring</h3>
+      <p>The published whole-body connectome of a three-day-old <i>Platynereis dumerilii</i> larva: <b>2,675 cells and cell fragments, 14,066 connections, 26,881 synapses</b>, each traced by hand from serial electron micrographs.</p>
+      <p>Every connection and synapse count is taken straight from that dataset. Nothing is added or rewired.</p>
+      <p><b>1,199 cells</b> sit at a soma position from the lab's published 3D reconstructions of their cell type, on the correct body side. <b>1,009 more</b> have no published position and are placed in their correct body segment and side. <b>467 fragments</b> are simulated but not drawn.</p>
+    </div>
+    <div>
+      <span class="tag simp">Simplified</span>
+      <h3>The model</h3>
+      <p>Each cell is a simple firing-rate unit. Its input is the activity of the cells that synapse onto it, weighted by synapse count and divided by its total incoming synapses.</p>
+      <ul>
+        <li>Which transmitter each cell uses is unknown for most of them, so <b>every synapse is treated as excitatory</b>.</li>
+        <li>One global gain (2.2) and slow per-cell fatigue keep activity from running away.</li>
+        <li><b>Nothing is trained.</b> There are no per-synapse weights beyond the published counts.</li>
+      </ul>
+      <p>The worm can't read. Your message reaches it only as light and dark moving across its eyes.</p>
+    </div>
+    <div>
+      <span class="tag read">Readouts</span>
+      <h3>What you see</h3>
+      <ul>
+        <li><b>One worm:</b> the server runs the only simulation, 30 steps a second, and streams its activity to everyone. Messages play one at a time, in order.</li>
+        <li><b>Eyes:</b> the 13 left photoreceptors each sample a strip of the left half of the view, and the 13 right ones the right half. The strip layout is our choice; the real receptive fields aren't in the data.</li>
+        <li><b>Bright views:</b> the brain's 4 non-directional light sensors only get input when most of the view is bright. In this model they set off the whole body.</li>
+        <li><b>Poke:</b> activates the touch sensors (collar receptors and chaeta mechanosensors) nearest your tap.</li>
+        <li><b>Meters:</b> left minus right activity of the longitudinal muscles and ciliated swimming cells, and the chaetal and parapodial muscles.</li>
+        <li><b>Check it:</b> every message and poke is written to a <a href="/log/current.jsonl" target="_blank" rel="noopener">public event log</a>. Re-running it with the open-source code reproduces every summary in the feed.</li>
+      </ul>
+    </div>
+  </section>
+
+  <footer>
+    Data: Verasztó C, Jasek S, Gühmann M, Bezares-Calderón LA, Williams EA, Shahidi R, Jékely G. <i>Whole-body connectome of a segmented annelid larva.</i> eLife (2025), <a href="https://elifesciences.org/articles/97964" target="_blank" rel="noopener">elifesciences.org/articles/97964</a> · code and data <a href="https://github.com/JekelyLab/Platynereis_3D_connectome_2024" target="_blank" rel="noopener">github.com/JekelyLab/Platynereis_3D_connectome_2024</a>, licensed <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>.<br>
+    Changes: node positions derived from the lab's 3D cell-type viewer files; data re-encoded for the browser; simulation model added (not part of the original work). This site is not affiliated with or endorsed by the authors.
+  </footer>
+</div>
+<script type="module" src="/app.js"></script>
+</body>
+</html>
