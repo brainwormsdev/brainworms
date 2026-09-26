@@ -1,0 +1,86 @@
+{
+  "note": "Real mainnet transactions seen read-only through logsSubscribe (SOLANA_LIVE=1). Logs are kept to program frames, instruction names and event data. pumpSwap.pool was read back from the pool account and equals pumpSwapPool(mint).",
+  "recordedAt": "2026-09-26T22:10:37.012Z",
+  "rpc": "wss://api.mainnet-beta.solana.com",
+  "pump": {
+    "signature": "5JUutMX8tT75owBrhSKDsVMHRB2J22smJ1Rk3xyWu4zzhTCLp8VHwWEKsgGLTEPZxFH5ffmU87EBDokEAEeRSWfN",
+    "slot": 450804900,
+    "mint": "CT6ZjNge5tWCRdaXxCxiQvkwQxwXL8oN9Ki8wicb2gsZ",
+    "logs": [
+      "Program 11111111111111111111111111111111 invoke [1]",
+      "Program 11111111111111111111111111111111 success",
+      "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+      "Program ComputeBudget111111111111111111111111111111 success",
+      "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+      "Program ComputeBudget111111111111111111111111111111 success",
+      "Program 11111111111111111111111111111111 invoke [1]",
+      "Program 11111111111111111111111111111111 success",
+      "Program 6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P invoke [1]",
+      "Program log: Instruction: Sell",
+      "Program pfeeUxB6jkeY1Hxd7CsFCAjcbHA9rWtchMGdZ6VojVZ invoke [2]",
+      "Program log: Instruction: GetFeesWithQuoteMint",
+      "Program pfeeUxB6jkeY1Hxd7CsFCAjcbHA9rWtchMGdZ6VojVZ success",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [2]",
+      "Program log: Instruction: TransferChecked",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success",
+      "Program data: vdt/007mYe6qH/LmD+ulBdri9wa/eQZ4Kof/YUpmhed/epKF7vl3WBOWojUAAAAAKRHZtfQLAAAADQiRRhHw/OH3o787wxopUf16EW0M5PA/2AL8aiBsVbzcQrhqAAAAAHIVOdMKAAAADCvjv7F1AgByaRXXAwAAAAyT0HMgdwEArRHmpPwpRKT6glG++BVCbhv7KMa2ZGZ3YHxq2fVmpkZfAAAAAAAAAMpwggAAAAAAC0fDgAkTFkm1Se5jLoPQczfEw9/PdfNFHXuXC0vNPI8eAAAAAAAAABgxKQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAHNlbGwAAAAAAAAAAAAAAAAAAAAAAIgTAAAAAAAAZThBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAATlqI1AAAAAHIVOdMKAAAAcmkV1wMAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "Program 6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P invoke [2]",
+      "Program 6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P success",
+      "Program 6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P success"
+    ],
+    "trades": [
+      {
+        "signature": "5JUutMX8tT75owBrhSKDsVMHRB2J22smJ1Rk3xyWu4zzhTCLp8VHwWEKsgGLTEPZxFH5ffmU87EBDokEAEeRSWfN",
+        "side": "sell",
+        "sol": 0.899847699,
+        "tokens": 13145650.827561,
+        "trader": "sssssDdMNAWKingjpEojkTNdVuZrBe7FsJLaGtexe7d",
+        "marketCapSol": 67.15243357320735,
+        "pool": "pump"
+      }
+    ]
+  },
+  "pumpSwap": {
+    "signature": "2YL72aPeKqWBcV9aR85pcfCPxL1w8kvudW1QAwmTWvXeVUZGJiNHPon7Pf57QL934arXxo635otWjVRR4CQLgpC5",
+    "slot": 450804900,
+    "mint": "CMfXbWZ8cLfPoTrwUYSzN3aatXZKBoPN1Fy9oEbHpump",
+    "pool": "Gcsr5ye4nWQ689FnmxF41FS1U1xp6Q7eBa9oQs9zkcmA",
+    "logs": [
+      "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+      "Program ComputeBudget111111111111111111111111111111 success",
+      "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+      "Program ComputeBudget111111111111111111111111111111 success",
+      "Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL invoke [1]",
+      "Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL success",
+      "Program pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA invoke [1]",
+      "Program log: Instruction: BuyExactQuoteIn",
+      "Program pfeeUxB6jkeY1Hxd7CsFCAjcbHA9rWtchMGdZ6VojVZ invoke [2]",
+      "Program log: Instruction: GetFeesWithQuoteMint",
+      "Program pfeeUxB6jkeY1Hxd7CsFCAjcbHA9rWtchMGdZ6VojVZ success",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [2]",
+      "Program log: Instruction: TransferChecked",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success",
+      "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+      "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+      "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+      "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+      "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+      "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+      "Program data: Z/RSHyz1d3fcQrhqAAAAAFfpzMKvBAAAwMYtAAAAAAAAAAAAAAAAAEDo1w8AAAAAhek/venPAABthagHAAAAAMDGLQAAAAAAAgAAAAAAAABRAgAAAAAAAF0AAAAAAAAApGsAAAAAAABjOC0AAAAAABI2LQAAAAAA6BAf0yM2ii6aS2+Io3ItpoXizjw/fJBRjKh823ZZnDV0Nwh3t55cMdo0QNZGWzwac7MP39IB0eu400ozwBs7v+QqCTRXPhUr9DS0p8RLmZ6y+bOShV1P4weEQ3K7u+alQ2q8qO7O/sn/AbuMl/TXoub4+4POzfu9kK62n42CnUHokxQfsY6fFXTYEOF44Z4wYE4xdaouSjLfyGAHJ9EHCaV/0UFUAFV6xkgSdt9FuOXJe+hYlt/rLOBcwY8qppNNlqNd19PK09IKhOZK1R7cd9HCJOURpYij8oUdyhxGyRweAAAAAAAAALkiAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAASAAAAYnV5X2V4YWN0X3F1b3RlX2luAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAxqR+jQMAAAAAAAAAAAAAAAAAAAAAAA==",
+      "Program pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA invoke [2]",
+      "Program pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA success",
+      "Program pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA success"
+    ],
+    "trades": [
+      {
+        "signature": "2YL72aPeKqWBcV9aR85pcfCPxL1w8kvudW1QAwmTWvXeVUZGJiNHPon7Pf57QL934arXxo635otWjVRR4CQLgpC5",
+        "side": "buy",
+        "sol": 0.003,
+        "tokens": 5152933.996887,
+        "trader": "8pexwV8aTRnzYfWSVse5o9T3C9HVDXYvg3McmUhH5uJv",
+        "marketCapSol": 0.5620434732648156,
+        "pool": "pump-amm"
+      }
+    ]
+  }
+}

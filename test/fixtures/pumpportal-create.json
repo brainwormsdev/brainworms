@@ -1,0 +1,56 @@
+{
+  "note": "Unsigned create transactions PumpPortal trade-local built for throwaway random keys. Never signed or sent. Re-record with SOLANA_LIVE=1.",
+  "fetchedAt": "2026-09-26T21:50:22.974Z",
+  "fixtures": {
+    "pumpportal-create.bin": {
+      "request": {
+        "publicKey": "H7x8ZQNt2GTeXyU65V1ykj8v9VKBv5nA9FsfA4kV79Y1",
+        "action": "create",
+        "tokenMetadata": {
+          "name": "BRAINWORM",
+          "symbol": "BRAINWORM",
+          "uri": "https://example.com/brainworm.json"
+        },
+        "mint": "G6C7uN2ftCgMZhzZypiRNSPGfCdSKmWde7U4Nvx7HTAy",
+        "denominatedInSol": "true",
+        "amount": 0,
+        "slippage": 10,
+        "priorityFee": 0.0005,
+        "pool": "pump"
+      },
+      "response": {
+        "url": "https://pumpportal.fun/api/trade-local",
+        "status": 200,
+        "contentType": "application/octet-stream",
+        "bytes": 766
+      },
+      "creator": "H7x8ZQNt2GTeXyU65V1ykj8v9VKBv5nA9FsfA4kV79Y1",
+      "mint": "G6C7uN2ftCgMZhzZypiRNSPGfCdSKmWde7U4Nvx7HTAy"
+    },
+    "pumpportal-create-devbuy.bin": {
+      "request": {
+        "publicKey": "FG4cZS1yZqXWWDaU5sjhpdYGh1iadVSxkU73F9ib2LRC",
+        "action": "create",
+        "tokenMetadata": {
+          "name": "BRAINWORM",
+          "symbol": "BRAINWORM",
+          "uri": "https://example.com/brainworm.json"
+        },
+        "mint": "AHaWWZbet3HdWRoBHfGrKF2iyAcXE64wfediTzXwXSQC",
+        "denominatedInSol": "true",
+        "amount": 0.01,
+        "slippage": 10,
+        "priorityFee": 0.0005,
+        "pool": "pump"
+      },
+      "response": {
+        "url": "https://pumpportal.fun/api/trade-local",
+        "status": 200,
+        "contentType": "application/octet-stream",
+        "bytes": 1021
+      },
+      "creator": "FG4cZS1yZqXWWDaU5sjhpdYGh1iadVSxkU73F9ib2LRC",
+      "mint": "AHaWWZbet3HdWRoBHfGrKF2iyAcXE64wfediTzXwXSQC"
+    }
+  }
+}

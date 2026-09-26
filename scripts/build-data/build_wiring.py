@@ -12,6 +12,11 @@ Inputs (all from that repository, CC BY 4.0):
 
 Output node layout: [name, class, side, segment, typeLabel, [x,y,z]|null, roles, approxPosition]
   positions are in a body frame: x = left(-)/right(+), y = tail(-)/head(+), z = dorsoventral; head end scaled to ~1.
+Soma -> cell: a viewer page lists its type's cells in ascending CATMAID skeleton id, as the CSV does. Where a page has one
+  soma per skeleton id listed for its type and every node of the type is among those ids, each node gets its own soma
+  (the k-th soma is the k-th id). Types whose counts differ (printed when the script runs) fall back to a side split:
+  somata with x above/below the median go to left/right nodes. Untyped nodes are placed near a random placed cell of
+  their segment and side (approxPosition = 1).
 Requires: numpy.
 """
 import sys, os, re, json, csv, math, struct, base64, random, collections, statistics as st
@@ -57,9 +62,13 @@ nodes = [dict(skid=G['skids'][i], name=nmap.get(G['skids'][i]), ct=G['celltype_a
 fr = [int(x) - 1 for x in vec('from')]; to = [int(x) - 1 for x in vec('to')]; w = [int(float(x)) for x in vec('weight')]
 
 # ---------- 3. cell types for neurons ----------
-ctname = {}
+ctname, ctskids, last = {}, {}, None
 for r in csv.DictReader(open(os.path.join(REPO, 'data/neuronal_celltypes_table.csv'))):
     ann = (r.get('CATMAID annotation') or '').strip(); ctname[ann] = r['name of cell type']
+    if r.get('CATMAID annotation') is None and last and re.fullmatch(r'[\d\s]+', r['name of cell type'] or ''):
+        ctskids[last] += r['name of cell type'].split()   # a skid list the file breaks across lines (used for somata only)
+    else:
+        last = ann; ctskids[ann] = (r.get('CATMAID skids') or '').split()
     for sk in (r.get('CATMAID skids') or '').split():
         for n in nodes:
             if n['skid'] == sk: n['ct'] = ann
@@ -71,14 +80,23 @@ MID = st.median(c[0] for c in allc)
 pos = {}
 bytype = collections.defaultdict(list)
 for i, n in enumerate(nodes): bytype[n['ct']].append(i)
+own, claimed, fallback = {}, set(), {}            # each node's own soma; somata known to belong to a particular cell
+for ct, sp in R.items():
+    idx = bytype.get(ct, [])
+    ids = sorted(ctskids.get(ct, []), key=int)
+    if len(ids) == len(sp) and all(nodes[i]['skid'] in ids for i in idx):
+        k = {s: j for j, s in enumerate(ids)}
+        own.update({i: sp[k[nodes[i]['skid']]] for i in idx}); claimed.update(tuple(c) for c in sp)
 for ct, idx in bytype.items():
     if ct not in R or ct == 'not_celltype': continue
-    sp = R[ct]
+    sp = [c for c in R[ct] if tuple(c) not in claimed]
+    if any(i not in own for i in idx): fallback[ct] = len(idx)
     hi = sorted([c for c in sp if c[0] >= MID], key=lambda c: (c[2], c[1]))
     lo = sorted([c for c in sp if c[0] < MID], key=lambda c: (c[2], c[1]))
     pools = {'left_side': hi, 'right_side': lo}      # which x-half is "left" only mirrors the picture
     rest = []
     for i in sorted(idx, key=lambda i: nodes[i]['name'] or ''):
+        if i in own: pos[i] = own[i]; continue
         p = pools.get(nodes[i]['side'])
         if p: pos[i] = p.pop(0)
         else: rest.append(i)
@@ -117,7 +135,7 @@ def roles(n):
     if n['cls'] == 'Sensory neuron':
         if nm.startswith('PRC') or nm.startswith('eyespot-PRC'): r |= 1      # eye photoreceptors
         if nm.startswith('cPRC'): r |= 2                                     # ciliary (non-directional) photoreceptors
-        if re.search(r'CR|chaeMech', nm): r |= 4                             # collar receptors, chaeta mechanosensors
+        if re.search(r'CR|chaeMech', nm) and not r & 1: r |= 4              # collar receptors, chaeta mechanosensors (not eyespot-PRCR*)
     if n['cls'] == 'effector':
         if nm.startswith('MUSlong'): r |= 8 if n['side'] == 'left_side' else (16 if n['side'] == 'right_side' else 0)
         if re.match(r'MUS(chae|ac|ob)', nm): r |= 32                         # chaetal, acicular, oblique muscles
@@ -137,3 +155,5 @@ for (a, b), c in agg.items(): out['e'] += [a, b, c]
 json.dump(out, open(OUT, 'w'), separators=(',', ':'))
 print(f'{len(nodes)} cells, {len(agg)} connections, {sum(agg.values())} synapses, '
       f'{len(pos) - len(approx)} at published positions, {len(approx)} approximate -> {OUT}')
+print(f'{len(own)} at their own soma; placed by side, for types whose page and skid counts differ: '
+      + ', '.join(f'{ct} ({k} nodes)' for ct, k in sorted(fallback.items())))

@@ -2,143 +2,390 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Talk to the Worm</title>
-<meta name="description" content="One live marine worm larva brain, wired exactly as published. Type a message it sees as light, or poke it. Everyone watching sees the same worm react.">
-<meta property="og:title" content="Talk to the Worm">
-<meta property="og:description" content="A real larva connectome running live. Talk to it, poke it, watch 2,675 cells react.">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
+<title>BRAINWORM · a real larva's wiring, simulated live</title>
+<meta name="description" content="A simulation of a real marine worm larva's nervous system, wired exactly as published and running live. Type a message it sees as light, poke it, or set two words against each other. Everyone watching sees the same worm.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="BRAINWORM">
+<meta property="og:title" content="BRAINWORM">
+<meta property="og:description" content="A real larva's wiring diagram, simulated live: 2,675 cells, 26,881 synapses. Talk to it, poke it, watch it light up. Everyone sees the same worm.">
+<meta property="og:url" content="%ORIGIN%/">
+<meta property="og:image" content="%ORIGIN%/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="BRAINWORM: a glowing map of a real larva's nervous system">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="BRAINWORM">
+<meta name="twitter:description" content="A real larva's wiring, exactly as published, simulated live. Everyone sees the same worm.">
+<meta name="twitter:image" content="%ORIGIN%/og.png">
 <meta name="theme-color" content="#04070B">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@200..800&family=Geist+Mono:wght@400..600&display=swap">
 <link rel="stylesheet" href="/style.css">
+<link rel="modulepreload" href="/app.js">
+<link rel="modulepreload" href="/gl.js">
+<link rel="preload" href="/data/wiring.json" as="fetch" crossorigin>
 </head>
-<body>
-<div class="wrap">
-  <header>
-    <div class="eyebrow">
-      <span class="live status" id="status" data-mode="connecting">Connecting</span>
-      <span id="watchers">·</span>
-      <span>Platynereis dumerilii · 3-day-old larva · whole-body connectome</span>
-    </div>
-    <h1>Talk to the <em>Worm</em></h1>
-    <p class="lede">Every dot is a real cell from an electron-microscopy map of a marine worm larva, wired exactly as published. <b>There is one worm, and everyone here is looking at it.</b> Type a message and it's shown to the worm's eyes as light. Tap its body to poke it.</p>
-    <div class="token" id="token" hidden></div>
-  </header>
+<body class="intro loading">
+<a class="skip" href="#msg">Skip to the message box</a>
 
-  <div class="grid">
-    <div class="stage" id="stage">
-      <canvas id="brain" aria-label="3D map of the larva's cells lighting up with live activity"></canvas>
-      <div class="hud tl">Head ↑<br><span class="hint">Tap body to poke · drag to turn</span></div>
-      <div class="hud tr">Step <b id="hudstep">0</b><br><b id="hudcells">0</b> cells firing</div>
-      <div class="hud bl">L</div>
-      <div class="hud br">R</div>
-      <div id="tip" hidden></div>
+<canvas id="brain" aria-hidden="true"></canvas>
+<canvas id="overlay" aria-hidden="true"></canvas>
+<div class="flash" id="flash" aria-hidden="true"></div>
+<div class="loader" id="loader" aria-hidden="true"></div>
+
+<nav class="nav" aria-label="Sections">
+  <a class="wordmark" href="#top">BRAINWORM</a>
+  <div class="navlinks" id="navlinks">
+    <a href="#experiments">Experiments</a>
+    <a href="#board">Break the worm</a>
+    <a href="#how">How it works</a>
+    <a href="#proof">Proof</a>
+    <a href="#plainly">Stated plainly</a>
+    <a href="#coin" id="navcoin" hidden></a>
+  </div>
+</nav>
+<div class="announce" id="announce" role="status" hidden><span class="dot"></span><span id="announcetext"></span><span class="left" id="announceleft"></span></div>
+
+<main class="instrument" id="top">
+  <section class="hero" id="stage" aria-label="The live worm. Tap the body to poke it, drag to turn it.">
+    <div class="hudl">
+      <div class="corner tl">
+        <span class="k">Specimen</span>
+        <span>Platynereis dumerilii · 3-day larva</span>
+        <span>2,675 cells · 26,881 synapses</span>
+      </div>
+      <header class="brand" id="brand">
+        <h1 id="wordmark"><span class="sr">BRAINWORM</span></h1>
+        <p class="triplet">Real larva wiring, simulated live</p>
+      </header>
+    </div>
+    <div class="hudr">
+      <div class="corner tr">
+        <span class="status" id="status" data-mode="connecting">Connecting</span>
+        <span id="watchers">&nbsp;</span>
+        <span class="k">Step <b id="hudstep">0</b> · <span id="hudclock">30.0/s</span></span>
+        <a class="verify" id="verifybadge" href="#proof" data-state="off"><span class="vdot"></span><span id="verifytext">Live check starting</span></a>
+      </div>
+      <div class="count" aria-hidden="true">
+        <output id="hudcells">0</output>
+        <span>cells firing</span>
+      </div>
+      <div class="corner br" id="proofcorner">
+        <span class="k">Proof chain</span>
+        <a href="#proof" id="proofhud">reading…</a>
+      </div>
     </div>
 
-    <div class="side">
-      <section class="card" aria-labelledby="talkh">
-        <h2 id="talkh">Say something <span>→ light on its eyes</span></h2>
-        <form id="talk" autocomplete="off">
-          <input type="text" id="msg" maxlength="40" placeholder="gm worm" aria-label="Message to show the worm">
+
+    <div class="dock" id="dock">
+      <div class="stack" id="stack">
+        <div class="banner" id="banner" hidden><span class="bk" id="bannerk"></span><span class="bt" id="bannert"></span><span class="bs" id="banners"></span></div>
+        <div class="tugbar" id="tugbar" hidden aria-live="polite">
+          <div class="tugwords"><b id="tugA">A</b><span id="tugpass">warm-up</span><b id="tugB">B</b></div>
+          <div class="rope"><i class="mid"></i><i class="knot" id="tugknot"></i></div>
+          <div class="tugnote" id="tugnote">Each word goes to each eye in turn</div>
+        </div>
+        <div class="coach" id="coach" hidden><b>Type anything.</b> It reaches the worm's eyes as light.</div>
+        <p class="hint" id="hint">Tap to poke · drag to turn</p>
+      </div>
+      <div class="dockhead"><span class="dot" id="nowdot"></span><span id="nowtext">Eyes · dark</span><span id="queuetext"></span></div>
+      <div class="ledwrap">
+        <canvas id="eyeview" width="960" height="128" aria-label="What the worm's eyes are seeing right now"></canvas>
+        <span class="ledl">left eyes</span><span class="ledr">right eyes</span>
+      </div>
+      <div class="composer">
+        <div class="tabs" role="tablist" aria-label="What to send">
+          <button type="button" role="tab" id="tab-say" aria-selected="true" aria-controls="talk">Message</button>
+          <button type="button" role="tab" id="tab-tug" aria-selected="false" aria-controls="tugform">Tug</button>
+          <button type="button" role="tab" id="tab-lamp" aria-selected="false" aria-controls="lampform">Lamp</button>
+        </div>
+        <form id="talk" autocomplete="off" role="tabpanel" aria-labelledby="tab-say">
+          <input type="text" id="msg" maxlength="40" placeholder="Say something to the worm" aria-label="Message to show the worm" enterkeyhint="send">
           <button class="btn-amber" type="submit">Shine it</button>
         </form>
-        <div class="toast" id="toast" role="status" aria-live="polite"></div>
+        <form id="tugform" autocomplete="off" role="tabpanel" aria-labelledby="tab-tug" hidden>
+          <input type="text" id="tugwa" maxlength="10" placeholder="PEPE" aria-label="First word">
+          <span class="vs">vs</span>
+          <input type="text" id="tugwb" maxlength="10" placeholder="WIF" aria-label="Second word">
+          <button class="btn-amber" type="submit">Tug</button>
+        </form>
+        <form id="lampform" autocomplete="off" role="tabpanel" aria-labelledby="tab-lamp" hidden>
+          <p class="lampnote">A light in its tank for 30 s. Does it swim to it?</p>
+          <button class="btn-amber" type="submit">Light it</button>
+        </form>
+      </div>
+      <div class="dockfoot">
         <div class="chips" id="chips">
           <button class="chip" type="button">gm</button>
           <button class="chip" type="button">wagmi</button>
-          <button class="chip" type="button">ser pls</button>
           <button class="chip" type="button">LFG</button>
-          <button class="chip" type="button" title="Solid light: floods its light sensors">█████</button>
+          <button class="chip" type="button" title="Solid light floods its light sensors">█████</button>
         </div>
-        <div class="view">
-          <div class="nowplaying"><span id="nowtext">Eyes: dark</span><span id="queuetext"></span></div>
-          <canvas id="eyeview" width="600" height="100" aria-label="What the worm's eyes are seeing right now"></canvas>
-          <div class="prcs">
-            <div class="prcrow" id="prcL"></div><div class="mid">L | R</div><div class="prcrow r" id="prcR"></div>
-          </div>
-          <div class="hint2">Everyone watching sees your message. No links or wallet addresses.</div>
+        <div class="tools" role="toolbar" aria-label="View">
+          <button type="button" id="soundbtn" aria-pressed="false" title="Sound: every firing cell clicks"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 8v4h3l4 3V5L6 8H3z"/><path class="w" d="M13 7.5a3.5 3.5 0 0 1 0 5M15.5 5a7 7 0 0 1 0 10"/></svg><span>Sound</span></button>
+          <button type="button" id="clipbtn" title="Save the last 8 seconds as a video"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="6.5"/><circle class="f" cx="10" cy="10" r="3"/></svg><span>Clip</span></button>
+          <button type="button" id="anatbtn" aria-pressed="true" title="Show the traced cell shapes and the body"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3c3 0 4 3 3 6s-1 5 0 8M10 3c-3 0-4 3-3 6s1 5 0 8M6 9h8"/></svg><span>Anatomy</span></button>
+          <button type="button" id="labelbtn" aria-pressed="false" title="Label the anatomy"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="6" cy="13" r="2"/><path d="M7.5 11.5L12 6h5"/></svg><span>Labels</span></button>
+          <button type="button" id="sharebtn" title="Share this page"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v10M6 7l4-4 4 4M4 12v4h12v-4"/></svg><span>Share</span></button>
+          <button type="button" id="viewbtn" title="Reset the camera"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10a6 6 0 1 0 2-4.5M4 3v3h3"/></svg><span>Reset</span></button>
         </div>
-      </section>
-
-      <section class="card" aria-labelledby="acth">
-        <h2 id="acth">Activity <span>live</span></h2>
-        <div class="big"><output id="ncells">0</output><span>of 2,675 cells firing</span></div>
-        <canvas id="spark" width="600" height="92" aria-hidden="true"></canvas>
-        <div class="meter">
-          <div class="lab"><span>Body-wall muscles</span><b id="bendtxt">even</b></div>
-          <div class="bar lr"><i id="bendbar"></i></div>
-          <div class="ends"><span>left side</span><span>right side</span></div>
-        </div>
-        <div class="meter">
-          <div class="lab"><span>Ciliary bands (swimming)</span><b id="ciltxt">even</b></div>
-          <div class="bar lr"><i id="cilbar"></i></div>
-          <div class="ends"><span>left side</span><span>right side</span></div>
-        </div>
-        <div class="meter">
-          <div class="lab"><span>Startle muscles (chaetae, parapodia)</span><b id="sttxt">0%</b></div>
-          <div class="bar"><i id="stbar"></i></div>
-        </div>
-        <button class="btn-ghost" type="button" id="pokebtn">Poke a random spot</button>
-      </section>
-
-      <section class="card" aria-labelledby="feedh">
-        <h2 id="feedh">Live feed <span id="feedcount"></span></h2>
-        <ul id="feed"><li class="empty">Nothing yet. Say something.</li></ul>
-      </section>
+      </div>
+      <p class="toast" id="toast" role="status" aria-live="polite"></p>
+      <p class="modstate" id="modstate" hidden></p>
     </div>
-  </div>
 
-  <div class="legend" aria-label="Colour key">
-    <span><i class="k-eye"></i>eye photoreceptors (26)</span>
-    <span><i class="k-touch"></i>touch sensors (57)</span>
-    <span><i class="k-sn"></i>other sensory neurons</span>
-    <span><i class="k-in"></i>interneurons</span>
-    <span><i class="k-mn"></i>motor neurons</span>
-    <span><i class="k-mus"></i>muscles</span>
-    <span><i class="k-cil"></i>ciliated swimming cells</span>
-    <span><i class="k-other"></i>glands, glia, pigment</span>
-  </div>
+    <div class="tip" id="tip" role="tooltip" hidden></div>
 
-  <section class="method" aria-label="How this works">
-    <div>
-      <span class="tag real">Real</span>
-      <h3>The wiring</h3>
-      <p>The published whole-body connectome of a three-day-old <i>Platynereis dumerilii</i> larva: <b>2,675 cells and cell fragments, 14,066 connections, 26,881 synapses</b>, each traced by hand from serial electron micrographs.</p>
-      <p>Every connection and synapse count is taken straight from that dataset. Nothing is added or rewired.</p>
-      <p><b>1,199 cells</b> sit at a soma position from the lab's published 3D reconstructions of their cell type, on the correct body side. <b>1,009 more</b> have no published position and are placed in their correct body segment and side. <b>467 fragments</b> are simulated but not drawn.</p>
+    <div class="streamcta" id="streamcta" hidden></div>
+    <ol class="streamfeed" id="streamfeed" hidden></ol>
+    <ol class="streamboard" id="streamboard" hidden></ol>
+  </section>
+
+  <aside class="rail" id="rail" aria-label="Live activity and feed">
+    <section class="card activity" aria-labelledby="acth">
+      <h2 id="acth">Activity <span id="actnote"></span></h2>
+      <div class="big"><output id="ncells">0</output><span>of 2,675 cells firing</span></div>
+      <canvas id="spark" width="720" height="120" aria-hidden="true"></canvas>
+      <div class="meter">
+        <div class="lab"><span>Body-wall muscles</span><b id="bendtxt">even</b></div>
+        <div class="bar lr"><i id="bendbar"></i></div>
+        <div class="ends"><span>left</span><span>right</span></div>
+      </div>
+      <div class="meter">
+        <div class="lab"><span>Ciliary bands</span><b id="ciltxt">even</b></div>
+        <div class="bar lr"><i id="cilbar"></i></div>
+        <div class="ends"><span>left</span><span>right</span></div>
+      </div>
+      <div class="meter">
+        <div class="lab"><span>Startle muscles</span><b id="sttxt">0%</b></div>
+        <div class="bar"><i id="stbar"></i></div>
+      </div>
+      <div class="prcs" aria-label="Eye photoreceptor activity"><div class="prcrow" id="prcL"></div><div class="prcrow r" id="prcR"></div></div>
+      <button class="btn-ghost" type="button" id="pokebtn">Poke a random spot</button>
+    </section>
+    <section class="card swimcard" id="swim" aria-labelledby="swimh">
+      <h2 id="swimh">Body <span id="swimnote">swimming</span></h2>
+      <div class="swim">
+        <canvas id="tank" role="img" aria-label="The worm's swim path through its virtual tank"></canvas>
+        <dl class="swimstats">
+          <div><dt>Speed</dt><dd><b id="swspeed">0</b><i>µm/s</i></dd></div>
+          <div><dt>Depth</dt><dd><b id="swdepth">0</b><i>mm</i></dd></div>
+          <div><dt>Cilia beating</dt><dd><b id="swcilia">100</b><i>%</i></dd></div>
+          <div><dt>Swum</dt><dd><b id="swdist">0</b><i id="swdistu">mm</i></dd></div>
+        </dl>
+      </div>
+    </section>
+    <section class="card feedcard" aria-labelledby="feedh">
+      <h2 id="feedh">Transmissions <span id="feedcount"></span></h2>
+      <ul id="feed"><li class="empty">Nothing yet.</li></ul>
+    </section>
+  </aside>
+</main>
+
+<div class="page">
+  <section class="section story" id="what" data-scene="what">
+    <div class="col">
+      <p class="eyebrow">What it is</p>
+      <h2 class="display">A real nervous system, not a metaphor</h2>
+      <p class="lede">Every cell and connection of a three-day-old worm larva, traced from electron micrographs and wired exactly as published. Nothing invented, nothing trained. One copy runs, and everyone sees it.</p>
+      <div class="legend" aria-label="Colour key">
+        <span><i class="k-eye"></i>eye photoreceptors (26)</span>
+        <span><i class="k-touch"></i>touch sensors (53)</span>
+        <span><i class="k-sn"></i>other sensory neurons</span>
+        <span><i class="k-in"></i>interneurons</span>
+        <span><i class="k-mn"></i>motor neurons</span>
+        <span><i class="k-mus"></i>muscles</span>
+        <span><i class="k-cil"></i>ciliated swimming cells</span>
+        <span><i class="k-other"></i>glands, glia, pigment</span>
+      </div>
     </div>
-    <div>
-      <span class="tag simp">Simplified</span>
-      <h3>The model</h3>
-      <p>Each cell is a simple firing-rate unit. Its input is the activity of the cells that synapse onto it, weighted by synapse count and divided by its total incoming synapses.</p>
-      <ul>
-        <li>Which transmitter each cell uses is unknown for most of them, so <b>every synapse is treated as excitatory</b>.</li>
-        <li>One global gain (2.2) and slow per-cell fatigue keep activity from running away.</li>
-        <li><b>Nothing is trained.</b> There are no per-synapse weights beyond the published counts.</li>
-      </ul>
-      <p>The worm can't read. Your message reaches it only as light and dark moving across its eyes.</p>
+  </section>
+
+  <section class="section wide" id="experiments" data-scene="experiments">
+    <p class="eyebrow">Experiments</p>
+    <h2 class="display">What you can do to it</h2>
+    <div class="exps">
+      <article class="exp">
+        <p class="exphead">Talk <span class="pill live">Live</span></p>
+        <h3>Say something to a larva</h3>
+        <p>Your message scrolls across its 26 eye cells as light. Solid blocks flood its light sensors and set off the whole body.</p>
+        <a class="more" href="#msg" data-go="say">say something →</a>
+      </article>
+      <article class="exp">
+        <p class="exphead">Tug of worm <span class="pill live">Live</span> <span class="pill measured" id="calpill">Measured</span></p>
+        <h3>Two words, one body</h3>
+        <p>One word per eye, sides swapped each pass so the model's left lean cancels. The score is which side's muscles pulled harder. Not a choice.</p>
+        <dl class="cal" id="caltable"><div><dt>Rule, written first</dt><dd>The same word on both sides scores about zero, and swapping two words flips the sign.</dd></div></dl>
+        <a class="more" href="#msg" data-go="tug">start a tug →</a>
+      </article>
+      <article class="exp">
+        <p class="exphead">Break the worm <span class="pill live">Live</span></p>
+        <h3>The most cells firing at once</h3>
+        <p>Scored by the most cells firing at once. The worm tires, so the same message can score differently.</p>
+        <a class="more" href="#board">see the board →</a>
+      </article>
+      <article class="exp">
+        <p class="exphead">Proof of worm <span class="pill live">Live check</span></p>
+        <h3>Replay any hour, check any hash</h3>
+        <p>Your browser re-runs the worm and checks the server's hash every second. Every hour is sealed, chained and timestamped into Bitcoin.</p>
+        <a class="more" href="#proof">check it yourself →</a>
+      </article>
+      <article class="exp">
+        <p class="exphead">Stream chat <span class="pill" id="twitchpill">Off</span></p>
+        <h3>Twitch plays worm</h3>
+        <p id="twitchtext">A 16:9 layout at /stream. With a channel connected, "!worm" and "!poke" in chat reach the same worm.</p>
+        <a class="more" href="/stream">open the stream layout →</a>
+      </article>
+      <article class="exp">
+        <p class="exphead">The launch <span class="pill" id="launchpill">Not armed</span></p>
+        <h3>$BRAINWORM, from a logged moment</h3>
+        <p id="launchtext">Once armed, the worm's first full-body startle is the launch moment: logged, replayable, and drawn as the token's image. After launch, buys poke its head and sells its tail.</p>
+        <a class="more" href="/launch">launch status and proof →</a>
+      </article>
+      <article class="exp wide">
+        <div class="expcol">
+          <p class="exphead">The body <span class="pill live">Live</span> <span class="pill" id="lamppill" hidden></span></p>
+          <h3>It swims. Light a lamp and watch.</h3>
+          <p>Its cilia push it through a virtual tank in a helix. Stopped cilia turn it or let it sink, muscles steer, startle brakes. A lamp closes the loop: what its eyes see depends on which way it faces. The physics is ours and listed in the manifest.</p>
+          <p class="morelinks"><a class="more" href="#msg" data-go="lamp">light the lamp →</a> <a class="more" href="#swim" data-go="swim">live panel →</a></p>
+        </div>
+        <figure class="exptank">
+          <canvas id="tank2" role="img" aria-label="The worm swimming in its virtual tank, live"></canvas>
+          <figcaption><span id="tank2note">Live · last minute</span><span>Tank ⌀ 4.8 mm</span></figcaption>
+        </figure>
+      </article>
     </div>
-    <div>
-      <span class="tag read">Readouts</span>
-      <h3>What you see</h3>
-      <ul>
-        <li><b>One worm:</b> the server runs the only simulation, 30 steps a second, and streams its activity to everyone. Messages play one at a time, in order.</li>
-        <li><b>Eyes:</b> the 13 left photoreceptors each sample a strip of the left half of the view, and the 13 right ones the right half. The strip layout is our choice; the real receptive fields aren't in the data.</li>
-        <li><b>Bright views:</b> the brain's 4 non-directional light sensors only get input when most of the view is bright. In this model they set off the whole body.</li>
-        <li><b>Poke:</b> activates the touch sensors (collar receptors and chaeta mechanosensors) nearest your tap.</li>
-        <li><b>Meters:</b> left minus right activity of the longitudinal muscles and ciliated swimming cells, and the chaetal and parapodial muscles.</li>
-        <li><b>Check it:</b> every message and poke is written to a <a href="/log/current.jsonl" target="_blank" rel="noopener">public event log</a>. Re-running it with the open-source code reproduces every summary in the feed.</li>
+    <div class="lab" id="lab">
+      <div class="labhead">
+        <h3>Lab <span class="pill" id="labpill">Running</span></h3>
+        <p>Rules frozen before the first run. Control: 50 randomly rewired worms. <a href="/lab.json" target="_blank" rel="noopener">data</a></p>
+      </div>
+      <ol class="labrows" id="labrows"><li class="empty">Running the experiments…</li></ol>
+    </div>
+  </section>
+
+  <section class="section wide" id="board" data-scene="board">
+    <p class="eyebrow">Break the worm</p>
+    <h2 class="display">Most cells firing at once</h2>
+    <div class="boards">
+      <div class="boardcol"><h3>Today <span id="boardday"></span></h3><ol class="rank" id="boardtoday"><li class="empty">Nothing yet today. Be first.</li></ol></div>
+      <div class="boardcol"><h3>All time</h3><ol class="rank" id="boardall"><li class="empty">Nothing yet.</li></ol></div>
+      <div class="boardcol"><h3>Recent tugs</h3><ol class="tugs" id="tuglist"><li class="empty">No tugs yet.</li></ol></div>
+    </div>
+  </section>
+
+  <section class="section story" id="how" data-scene="how">
+    <div class="col">
+      <p class="eyebrow">How it works</p>
+      <h2 class="display">From your keyboard to its muscles</h2>
+      <ol class="steps">
+        <li data-step="eyes"><span class="n">00</span><div><h3>Your message becomes light</h3><p>Drawn in a pixel font, one column per step. Each eye cell gets its strip's brightness; which strip is our choice.</p><span class="tag chosen">Chosen</span></div></li>
+        <li data-step="web"><span class="n">01</span><div><h3>The wiring, as traced</h3><p>2,675 cells, 14,066 connections, 26,881 synapses, weighted by synapse count.</p><span class="tag real">Real</span></div></li>
+        <li data-step="model"><span class="n">02</span><div><h3>A simple model runs it</h3><p>Firing-rate cells, every synapse excitatory, one gain (2.2), slow fatigue. Nothing trained.</p><span class="tag simp">Simplified</span></div></li>
+        <li data-step="muscles"><span class="n">03</span><div><h3>What you see</h3><p>Each cell in its traced shape, lit by its activity. Sparks run from sender to receiver.</p><span class="tag chosen">Chosen</span></div></li>
+        <li data-step="muscles"><span class="n">04</span><div><h3>The body swims</h3><p>Cilia and muscles drive a simulated body at about half a millimetre a second. With a lamp lit, where it swims changes what its eyes see. The physics numbers are ours.</p><span class="tag chosen">Chosen</span></div></li>
+        <li data-step="log"><span class="n">05</span><div><h3>One worm, one log</h3><p>Every stimulus is logged with its step. Re-running the log reproduces every result.</p><span class="tag verify">Verifiable</span></div></li>
+        <li data-step="log"><span class="n">06</span><div><h3>Your browser checks it</h3><p>Your browser runs its own copy and compares state hashes with the server every second.</p><span class="tag verify">Live</span></div></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="section wide" id="proof" data-scene="proof">
+    <p class="eyebrow">Proof</p>
+    <h2 class="display">Don't trust it. Check it.</h2>
+    <p class="lede">Most of it is being checked right now, in your browser. Code: <a href="/shared/worm.js" target="_blank" rel="noopener">/shared/</a> · wiring: <a href="/data/wiring.json" target="_blank" rel="noopener">/data/wiring.json</a></p>
+    <div class="proofgrid">
+      <article class="pcard">
+        <p class="exphead">Live check <span class="pill" id="lcpill">Starting</span></p>
+        <h3>Your browser runs its own copy</h3>
+        <p>Your browser runs the worm alongside the server and compares hashes every second. One differing number anywhere changes the hash.</p>
+        <dl class="mini" id="lcstats">
+          <div><dt>Checks passed</dt><dd id="lcpass">0</dd></div>
+          <div><dt>Steps re-run</dt><dd id="lcsteps">0</dd></div>
+          <div><dt>Last hash</dt><dd><code id="lchash">—</code></dd></div>
+          <div><dt>Your engine</dt><dd id="lcengine">—</dd></div>
+        </dl>
+      </article>
+      <article class="pcard">
+        <p class="exphead">Replay <span class="pill measured">In your browser</span></p>
+        <h3>Re-run this whole hour</h3>
+        <p>Re-runs this hour's log from its checkpoint. Every result should match exactly.</p>
+        <button type="button" class="btn-amber" id="replaybtn">Replay this hour</button>
+        <div class="progress" aria-hidden="true"><i id="replaybar"></i></div>
+        <p class="result" id="replayres" role="status" aria-live="polite"></p>
+      </article>
+      <article class="pcard">
+        <p class="exphead">Timestamps <span class="pill" id="proofpill">Reading</span></p>
+        <h3>Sealed hourly, anchored in Bitcoin</h3>
+        <p>Each hour is hashed, chained to the last, and timestamped into Bitcoin through OpenTimestamps.</p>
+        <dl class="mini" id="proofhead"><div><dt>This hour</dt><dd><a href="/log/current.jsonl" target="_blank" rel="noopener">live log</a></dd></div></dl>
+      </article>
+    </div>
+
+    <div class="console" aria-label="The event log as it is written">
+      <div class="consolehead"><span><i class="rec"></i>The log, as it's written</span><span><a href="/log/current.jsonl" target="_blank" rel="noopener">full log</a> · <a href="/log/index.json" target="_blank" rel="noopener">all hours</a> · <a href="/manifest.json" target="_blank" rel="noopener">manifest</a></span></div>
+      <ol id="logconsole"><li class="dim"># waiting for the first event…</li></ol>
+    </div>
+
+    <div class="tablewrap"><table class="chain" id="proofchain"><thead><tr><th>Sealed</th><th>Events</th><th>Log SHA-256</th><th>Proof SHA-256</th><th>Bitcoin</th><th>Check</th></tr></thead><tbody><tr><td colspan="6" class="empty">The first hour seals an hour after start.</td></tr></tbody></table></div>
+
+    <details class="manifest">
+      <summary>Every number the model uses</summary>
+      <table id="manifesttable"><tbody><tr><td>Loading…</td></tr></tbody></table>
+    </details>
+
+    <div class="howto">
+      <p><b>Terminal:</b></p>
+      <pre><code id="replaycmd">npm run replay -- https://this-site/log/current.jsonl</code></pre>
+      <p><b>Timestamps:</b> drop a proof's <code>.txt</code> and <code>.ots</code> on <a href="https://opentimestamps.org" target="_blank" rel="noopener">opentimestamps.org</a>.</p>
+    </div>
+  </section>
+
+  <section class="section wide coin" id="coin" data-scene="proof" hidden>
+    <div class="castrip"><div><p class="eyebrow">Contract address <span id="cointick"></span></p><code id="coinca"></code></div><button type="button" class="btn-ghost" id="copyca">Copy</button></div>
+    <dl class="kv" id="cointable"></dl>
+    <p class="small">The only contract address on this site. Chat blocks all addresses and links, so any other is fake.</p>
+  </section>
+
+  <section class="section story" id="plainly" data-scene="plainly">
+    <div class="col">
+      <p class="eyebrow">Stated plainly</p>
+      <h2 class="display">The parts that aren't the worm</h2>
+      <ul class="plain">
+        <li><b>It can't read.</b> Your message reaches it only as light. It understands nothing.</li>
+        <li><b>It doesn't choose.</b> A tug shows which way its muscles pulled, not a preference. Nothing here predicts prices.</li>
+        <li><b>The model is simpler than the animal.</b> Every synapse excitatory, one shared gain. Real neurons spike, inhibit and modulate.</li>
+        <li><b>Some choices are ours.</b> The eye mapping, the light sensors' threshold, the poke cells, the swimming physics and the drawing.</li>
+        <li><b>Positions are partly placed.</b> 1,199 cells at traced positions, 1,009 placed by segment and side, 467 fragments not drawn.</li>
+        <li><b>The body is ours.</b> The glass outline, the swimming physics and the lamp are ours. Only the lamp feeds the body back into the brain.</li>
       </ul>
     </div>
   </section>
 
-  <footer>
-    Data: Verasztó C, Jasek S, Gühmann M, Bezares-Calderón LA, Williams EA, Shahidi R, Jékely G. <i>Whole-body connectome of a segmented annelid larva.</i> eLife (2025), <a href="https://elifesciences.org/articles/97964" target="_blank" rel="noopener">elifesciences.org/articles/97964</a> · code and data <a href="https://github.com/JekelyLab/Platynereis_3D_connectome_2024" target="_blank" rel="noopener">github.com/JekelyLab/Platynereis_3D_connectome_2024</a>, licensed <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>.<br>
-    Changes: node positions derived from the lab's 3D cell-type viewer files; data re-encoded for the browser; simulation model added (not part of the original work). This site is not affiliated with or endorsed by the authors.
+  <footer class="foot">
+    <p>Data: Verasztó C, Jasek S, Gühmann M, Bezares-Calderón LA, Williams EA, Shahidi R, Jékely G. <i>Whole-body connectome of a segmented annelid larva.</i> <a href="https://elifesciences.org/articles/97964" target="_blank" rel="noopener">eLife (2025)</a> · <a href="https://github.com/JekelyLab/Platynereis_3D_connectome_2024" target="_blank" rel="noopener">data</a> · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>. Changed: positions derived, data re-encoded, simulation and body added. Not affiliated with the authors.</p>
+    <p class="footlinks" id="footlinks"></p>
   </footer>
 </div>
+
+<div class="modal" id="clipmodal" role="dialog" aria-modal="true" aria-labelledby="cliph" hidden>
+  <div class="sheet">
+    <h2 id="cliph">Your clip</h2>
+    <video id="clipvideo" playsinline controls loop muted></video>
+    <p class="small" id="clipinfo"></p>
+    <div class="row">
+      <button type="button" class="btn-amber" id="clipsave">Download</button>
+      <button type="button" class="btn-ghost" id="clipshare">Share</button>
+      <a class="btn-ghost" id="clipx" target="_blank" rel="noopener">Post on X</a>
+      <button type="button" class="btn-ghost" id="clipclose">Close</button>
+    </div>
+  </div>
+</div>
+
 <script type="module" src="/app.js"></script>
 </body>
 </html>

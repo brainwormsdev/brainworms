@@ -10,16 +10,16 @@ export const FLOOD_GAIN = 2;
 
 const popcount = (m) => { let c = 0; while (m) { m &= m - 1; c++; } return c; };
 
-/** Render text to columns, padded with VIEW dark columns on both sides. */
-export function renderText(text) {
+/** Render text to columns, padded with `pad` dark columns on both sides (a full view by default). */
+export function renderText(text, pad = VIEW) {
   const cols = [];
-  for (let k = 0; k < VIEW; k++) cols.push(0);
+  for (let k = 0; k < pad; k++) cols.push(0);
   for (const ch of text) {
     const g = GLYPHS[ch] || GLYPHS['?'];
     for (const c of g) cols.push(c);
     cols.push(0);
   }
-  for (let k = 0; k < VIEW; k++) cols.push(0);
+  for (let k = 0; k < pad; k++) cols.push(0);
   const lum = new Float32Array(cols.length);
   for (let x = 0; x < cols.length; x++) lum[x] = popcount(cols[x]) / GLYPH_HEIGHT;
   return { cols: Uint16Array.from(cols), lum, width: cols.length, height: GLYPH_HEIGHT };
@@ -53,6 +53,25 @@ export function applyEyes(ext, roles, bmp, pos) {
   roles.eyeL.forEach((i, k) => { ext[i] += Math.min(1, EYE_GAIN * bandMean(bmp.lum, pos, k * half / nL, (k + 1) * half / nL)); });
   roles.eyeR.forEach((i, k) => { ext[i] += Math.min(1, EYE_GAIN * bandMean(bmp.lum, pos, half + k * half / nR, half + (k + 1) * half / nR)); });
   const flood = Math.max(0, bandMean(bmp.lum, pos, 0, VIEW) - FLOOD);
+  if (flood > 0) for (const i of roles.cprc) ext[i] += FLOOD_GAIN * flood;
+  return flood;
+}
+
+/** A word rendered for one half of the view (tugs): half a view of dark padding each side. */
+export const renderHalf = (text) => renderText(text, VIEW / 2);
+/** Steps for a half-view word to scroll fully across its half. */
+export const halfDurationSteps = (bmp) => Math.ceil((bmp.width - VIEW / 2) / SPEED);
+
+/**
+ * Tug input: the left half of the view shows one word scrolling, the right half another.
+ * Same strips and gains as applyEyes, so a word drives a side exactly as a message would.
+ */
+export function applyEyesSplit(ext, roles, bmpL, posL, bmpR, posR) {
+  const half = VIEW / 2;
+  const nL = roles.eyeL.length, nR = roles.eyeR.length;
+  roles.eyeL.forEach((i, k) => { ext[i] += Math.min(1, EYE_GAIN * bandMean(bmpL.lum, posL, k * half / nL, (k + 1) * half / nL)); });
+  roles.eyeR.forEach((i, k) => { ext[i] += Math.min(1, EYE_GAIN * bandMean(bmpR.lum, posR, k * half / nR, (k + 1) * half / nR)); });
+  const flood = Math.max(0, (bandMean(bmpL.lum, posL, 0, half) + bandMean(bmpR.lum, posR, 0, half)) / 2 - FLOOD);
   if (flood > 0) for (const i of roles.cprc) ext[i] += FLOOD_GAIN * flood;
   return flood;
 }

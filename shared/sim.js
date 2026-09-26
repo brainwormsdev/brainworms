@@ -4,6 +4,8 @@
 // What is simplified (and stated on the site): every synapse is excitatory, because
 // transmitter identity is unknown for most cells; one global gain; slow per-cell fatigue.
 // Nothing is trained. Do not add per-synapse weights beyond the published counts.
+// tanh comes from detmath.js (plain arithmetic), so every JavaScript engine computes identical activity.
+import { tanh } from './detmath.js';
 
 export const PARAMS = Object.freeze({
   gain: 2.2,   // global gain on normalised synaptic input
@@ -42,7 +44,7 @@ export function makeSim(D, P = PARAMS) {
       let s = ext[i];
       for (let j = rowStart[i], end = rowStart[i + 1]; j < end; j++) s += P.gain * w[j] * r[pre[j]];
       s -= P.adapt * fatigue[i];
-      const f = s > P.theta ? Math.tanh(s - P.theta) : 0;
+      const f = s > P.theta ? tanh(s - P.theta) : 0;
       next[i] = r[i] + (f - r[i]) / P.tau;
     }
     for (let i = 0; i < N; i++) {
@@ -53,5 +55,5 @@ export function makeSim(D, P = PARAMS) {
 
   function reset() { r.fill(0); fatigue.fill(0); ext.fill(0); }
 
-  return { N, r, ext, step, reset, P };
+  return { N, r, fatigue, ext, step, reset, P };
 }

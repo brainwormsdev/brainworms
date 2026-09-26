@@ -1,0 +1,30 @@
+{
+  "note": "Recorded read-only from PumpPortal's data websocket (SOLANA_LIVE=1). Trade messages need a funded PumpPortal API key (PUMPPORTAL_API_KEY); without one, tradeReply is the refusal and trade is null.",
+  "recordedAt": "2026-09-26T21:50:24.309Z",
+  "url": "wss://pumpportal.fun/api/data",
+  "withApiKey": false,
+  "notices": [
+    "Successfully subscribed to token creation events.",
+    "Unsubscribed.",
+    "'subscribeTokenTrade' and 'subscribeAccountTrade' methods are only available when connecting with an API key funded with at least 0.02 SOL."
+  ],
+  "newToken": {
+    "signature": "4EuyYZJLU7WHECkeZbnogJmxJFh5tvjszeuDuoG1KJkWrF446wmrE6MxbJ68bQSrsDfN1myTYjSAo3e7QKHbxBNc",
+    "mint": "EuHAm5US1HeRxyU6vxW1oXc7NovhFqmFmNVhQLVXpump",
+    "traderPublicKey": "A3bTkDxbQxjTkpJdXVmK1hq6jZwoYGkmNwsnrh9JoA9W",
+    "txType": "create",
+    "initialBuy": 67062499.999999,
+    "solAmount": 2,
+    "bondingCurveKey": "5eQH5BJPb5kuMQ3SWSzKtYyYqb1hYxpTL3eo5GK9dW4n",
+    "vTokensInBondingCurve": 1005937500.000001,
+    "vSolInBondingCurve": 31.999999999999968,
+    "marketCapSol": 31.811121466293816,
+    "name": "SpotiPaid",
+    "symbol": "SPOTIPAID",
+    "uri": "https://metadata.bloombot.app/f05e9cef-9bd2-4734-86cf-057b676a103f.json",
+    "is_mayhem_mode": false,
+    "pool": "pump"
+  },
+  "tradeReply": "'subscribeTokenTrade' and 'subscribeAccountTrade' methods are only available when connecting with an API key funded with at least 0.02 SOL.",
+  "trade": null
+}

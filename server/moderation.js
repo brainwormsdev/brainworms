@@ -33,15 +33,22 @@ export function checkMessage(raw, blocklist = []) {
     .trim();
   if (!text) return { ok: false, code: 'empty', message: 'Type something first.' };
   if ([...text].length > MAX_LEN) text = [...text].slice(0, MAX_LEN).join('');
-  if (LINK.test(text)) return { ok: false, code: 'link', message: 'Links are not allowed.' };
-  if (EVM_ADDR.test(text) || B58_ADDR.test(text) || LONG_HEX.test(text)) {
-    return { ok: false, code: 'address', message: 'Wallet and contract addresses are not allowed in chat.' };
-  }
+  const scam = findScam(text);
+  if (scam) return { ok: false, ...scam };
   const lower = text.toLowerCase();
   if (blocklist.some((w) => lower.includes(w))) return { ok: false, code: 'blocked', message: 'That message is not allowed.' };
   const matches = matcher.getAllMatches(text);
   if (matches.length) text = censor.applyTo(text, matches);
   return { ok: true, text };
+}
+
+/** Links and wallet/contract addresses, the two things a fake-CA scam needs. Null when clean. */
+export function findScam(text) {
+  if (LINK.test(text)) return { code: 'link', message: 'Links are not allowed.' };
+  if (EVM_ADDR.test(text) || B58_ADDR.test(text) || LONG_HEX.test(text)) {
+    return { code: 'address', message: 'Wallet and contract addresses are not allowed in chat.' };
+  }
+  return null;
 }
 
 /** Token bucket per key. */

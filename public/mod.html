@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Mod panel · BRAINWORM</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#04070B">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@200..800&family=Geist+Mono:wght@400..600&display=swap">
+<link rel="stylesheet" href="/mod.css">
+</head>
+<body>
+
+<!-- ---------- locked ---------- -->
+<main class="lockscreen" id="lock" hidden>
+  <form class="card lockcard" id="lockform" autocomplete="off" novalidate>
+    <div class="eyebrow">BRAINWORM</div>
+    <h1>Mod <em>panel</em></h1>
+    <label class="lbl" for="token">Admin token</label>
+    <input class="field" type="password" id="token" name="token" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" required aria-describedby="lockerr locknote">
+    <button class="btn btn-amber btn-block" type="submit" id="unlock">Unlock</button>
+    <p class="err" id="lockerr" role="alert"></p>
+    <p class="note" id="locknote">The token is kept in this tab only and is forgotten when you close it.</p>
+  </form>
+</main>
+
+<!-- ---------- unlocked ---------- -->
+<div id="app" hidden>
+  <header class="bar" id="bar">
+    <div class="bar-in">
+      <div class="conn" id="conn" data-state="connecting" role="status" aria-live="polite">Connecting</div>
+      <div class="kpi kpi-w"><b id="watchers">–</b><span>watching</span></div>
+      <div class="kpi kpi-q"><b id="queue">–</b><span>queued</span></div>
+      <div class="toggles" role="group" aria-label="Site controls">
+        <button type="button" class="tog" id="chatTog" role="switch" aria-checked="true" aria-label="Chat">
+          <span class="k" aria-hidden="true">Chat</span><span class="v" id="chatVal" aria-hidden="true">ON</span>
+        </button>
+        <button type="button" class="tog" id="pokeTog" role="switch" aria-checked="true" aria-label="Pokes">
+          <span class="k" aria-hidden="true">Pokes</span><span class="v" id="pokeVal" aria-hidden="true">ON</span>
+        </button>
+        <div class="tog sel" id="slowTog">
+          <label class="k" for="slow">Slow mode</label>
+          <select id="slow">
+            <option value="0">Off</option>
+            <option value="10">10s</option>
+            <option value="30">30s</option>
+            <option value="60">60s</option>
+            <option value="300">5m</option>
+          </select>
+        </div>
+      </div>
+      <button type="button" class="panic" id="panic" aria-label="Panic: pause chat and pokes and clear the public feed">Panic</button>
+    </div>
+  </header>
+
+  <main class="main">
+    <section class="card stats" aria-labelledby="statsh">
+      <div class="cardhead">
+        <h2 id="statsh">Last minute</h2>
+        <span class="statmeta">up <b id="sUp">–</b> · <span id="sync" class="sync">syncing…</span></span>
+      </div>
+      <div class="tiles">
+        <div class="tile"><b id="sMsg">–</b><span>Messages</span></div>
+        <div class="tile"><b id="sPoke">–</b><span>Pokes</span></div>
+        <div class="tile"><b id="sRej">–</b><span>Rejected</span></div>
+      </div>
+      <p class="twitch" id="twitch" data-state="off" hidden></p>
+    </section>
+
+    <nav class="jump" aria-label="Jump to section">
+      <a class="chip" href="#feedcard">Feed</a>
+      <a class="chip" href="#announce">Announce</a>
+      <a class="chip" href="#muted">Muted <span id="jumpMuted"></span></a>
+      <a class="chip" href="#blocklist">Blocklist</a>
+    </nav>
+
+    <section class="card feedcard" id="feedcard" aria-labelledby="feedh">
+      <div class="feedhead">
+        <h2 id="feedh">Live feed <span id="feedCount"></span></h2>
+        <div class="feedtools">
+          <button type="button" class="mini" id="freeze" aria-pressed="false">Freeze</button>
+          <button type="button" class="mini" id="hideGone" aria-pressed="false">Hide removed</button>
+        </div>
+      </div>
+      <div class="feedbody">
+        <div class="pillwrap"><button type="button" class="newpill" id="newPill" hidden></button></div>
+        <ul id="feed" aria-label="Messages and pokes, newest first"></ul>
+        <p class="empty" id="feedEmpty">Nothing in the feed yet.</p>
+        <button type="button" class="btn btn-ghost btn-block" id="more" hidden>Show older</button>
+      </div>
+    </section>
+
+    <div class="side">
+      <section class="card" id="announce" aria-labelledby="annh">
+        <h2 id="annh">Announcement</h2>
+        <div class="annnow" id="annNow"></div>
+        <form class="annform" id="annform" autocomplete="off">
+          <div class="lblrow"><label class="lbl" for="annText">Pinned message for everyone</label><span class="counter" id="annCount">0/80</span></div>
+          <input class="field" type="text" id="annText" maxlength="80" placeholder="Chat is paused for a few minutes" aria-describedby="annErr annHint">
+          <p class="hint" id="annHint">No links or wallet addresses.</p>
+          <div class="annrow">
+            <label class="visually-hidden" for="annMin">Show for</label>
+            <select class="field" id="annMin">
+              <option value="5">5 min</option>
+              <option value="15" selected>15 min</option>
+              <option value="60">60 min</option>
+            </select>
+            <button class="btn btn-amber" type="submit" id="annPost">Post</button>
+            <button class="btn btn-ghost" type="button" id="annClear">Clear</button>
+          </div>
+          <p class="err" id="annErr" role="alert"></p>
+        </form>
+      </section>
+
+      <section class="card" id="muted" aria-labelledby="mutedh">
+        <h2 id="mutedh">Muted <span id="banCount"></span></h2>
+        <ul class="list" id="bans"></ul>
+        <p class="empty" id="bansEmpty">Nobody is muted.</p>
+      </section>
+
+      <section class="card" id="blocklist" aria-labelledby="blh">
+        <h2 id="blh">Blocklist <span id="blCount"></span></h2>
+        <form class="inline" id="blform" autocomplete="off">
+          <label class="visually-hidden" for="blText">Phrase to block</label>
+          <input class="field" type="text" id="blText" maxlength="60" placeholder="Block a phrase" autocapitalize="none" spellcheck="false">
+          <button class="btn btn-amber" type="submit">Add</button>
+        </form>
+        <ul class="phrases" id="extra" aria-label="Phrases added here"></ul>
+        <div class="blbase">
+          <p id="blBase">Messages containing any of these phrases are rejected.</p>
+          <button class="btn btn-ghost" type="button" id="blReload">Reload file</button>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="sessh">
+        <h2 id="sessh">This panel</h2>
+        <p class="note">The token lives in this tab only. Pauses, mutes and the announcement apply to everyone watching.</p>
+        <div class="sessrow">
+          <a class="btn btn-ghost" href="/" target="_blank" rel="noopener">Open the site</a>
+          <button class="btn btn-ghost" type="button" id="lockbtn">Lock</button>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<div class="toasts">
+  <div id="toasts" role="status" aria-live="polite"></div>
+  <div id="alerts" role="alert" aria-live="assertive"></div>
+</div>
+
+<script type="module" src="/mod.js"></script>
+</body>
+</html>

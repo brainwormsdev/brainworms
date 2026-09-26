@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Launch · BRAINWORM</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#04070B">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@200..800&family=Geist+Mono:wght@400..600&display=swap">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body class="lp">
+<nav class="nav" aria-label="Site">
+  <a class="wordmark" href="/">BRAINWORM</a>
+  <div class="navlinks"><a href="/">The worm</a><a href="/#proof">Proof</a></div>
+</nav>
+
+<main class="lpwrap">
+  <header class="lphead">
+    <p class="eyebrow">$BRAINWORM · Solana · pump.fun</p>
+    <h1 id="lpmark"><span class="sr">BRAINWORM launch</span></h1>
+    <p class="lede">Once the launch is armed, the worm's <b>first full-body startle</b> is the launch moment. That exact step goes into the public log, the token's image is drawn from the worm's activity at that step, and a replay of the log shows it really was the first startle after arming.</p>
+  </header>
+
+  <ol class="lpsteps" id="lpsteps">
+    <li data-k="armed"><span class="n">01</span><div><h3>Armed</h3><p id="st-armed">Not armed yet.</p></div></li>
+    <li data-k="moment"><span class="n">02</span><div><h3>The moment</h3><p id="st-moment">Waiting for the launch to be armed.</p></div></li>
+    <li data-k="metadata"><span class="n">03</span><div><h3>Image and metadata</h3><p id="st-metadata">Uploaded to IPFS after the moment.</p></div></li>
+    <li data-k="launched"><span class="n">04</span><div><h3>Launched</h3><p id="st-launched">Created on pump.fun from the moment.</p></div></li>
+  </ol>
+
+  <section class="lpmoment" id="lpmoment" hidden>
+    <img id="lpimg" alt="The worm's activity at the launch moment" width="1000" height="1000">
+    <div>
+      <p class="eyebrow">The launch moment</p>
+      <dl class="kv" id="lpkv"></dl>
+      <p class="small">Check it yourself: replay the hour that contains this step (Proof section on the main page). The replay finds the first startle after arming on its own and compares the worm's state hash at that step.</p>
+      <p class="small" id="lpdesc"></p>
+    </div>
+  </section>
+
+  <section class="lpadmin" id="lpadmin">
+    <p class="eyebrow">For the owner</p>
+    <form id="lplock" autocomplete="off"><input type="password" id="lptoken" placeholder="Admin token" aria-label="Admin token"><button class="btn-amber" type="submit">Unlock</button></form>
+    <div id="lpcontrols" hidden>
+      <div class="lprow"><button type="button" class="btn-ghost" id="lparm">Arm the launch</button><button type="button" class="btn-ghost" id="lpdisarm">Disarm</button></div>
+      <div class="lprow">
+        <input type="text" id="lptw" placeholder="X link (optional)" aria-label="X link">
+        <input type="text" id="lptg" placeholder="Telegram link (optional)" aria-label="Telegram link">
+        <button type="button" class="btn-ghost" id="lpmeta">Upload image + metadata</button>
+      </div>
+      <div class="lprow">
+        <button type="button" class="btn-ghost" id="lpwallet">Connect wallet</button>
+        <label class="small">Dev buy (SOL) <input type="text" id="lpbuy" value="0" inputmode="decimal" aria-label="Initial buy in SOL"></label>
+        <button type="button" class="btn-ghost" id="lpprep">Prepare transaction</button>
+        <button type="button" class="btn-amber" id="lpsign" disabled>Sign and launch</button>
+      </div>
+      <pre class="lplog" id="lplog" aria-live="polite"></pre>
+    </div>
+  </section>
+</main>
+<script type="module" src="/launch.js"></script>
+</body>
+</html>

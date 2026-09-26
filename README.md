@@ -1,80 +1,74 @@
-# Talk to the Worm
+# BRAINWORM
 
-A live website running the published wiring diagram of a three-day-old marine worm larva (*Platynereis dumerilii*): 2,675 cells and cell fragments, 14,066 connections, 26,881 synapses. **There is one worm and everyone on the site sees it.** Visitors type messages, which scroll past the worm's eyes as light, or tap its body to poke it, and watch the activity spread through its nervous system.
+A live website running the published wiring diagram of a three-day-old marine worm larva (*Platynereis dumerilii*): 2,675 cells and cell fragments, 14,066 connections, 26,881 synapses. **There is one worm and everyone on the site sees it.** Visitors type messages that scroll past its eyes as light, poke it, or set two words against each other in a tug, and watch the activity spread through its real wiring in 3D, and its simulated body swim through a virtual tank.
+
+Everything is checkable. Every browser runs its own copy of the worm and compares its state hash with the server's every second; any hour of the log can be replayed in the browser or from a terminal; each sealed hour is hash-chained and timestamped into Bitcoin.
 
 ## Run it locally
 
 ```bash
 npm install
-npm start            # http://localhost:3000
-npm test             # all tests
+ADMIN_TOKEN=pick-a-long-secret npm start     # http://localhost:3000, /mod, /launch, /stream
+npm test                                      # all tests
 ```
 
 Node 20 or newer.
 
+## What's on the site
+
+- **The worm in 3D** (WebGL2, bloom, depth of field): every drawn cell at its published position, connections lighting up when their sending cell fires, sparks running sender → receiver, hover any cell to trace its real inputs and outputs, anatomy labels, a camera that follows what's happening, and a scroll story that flies to the eyes, the nerve cord and the muscles.
+- **The lamp** (`shared/lamp.js`): anyone can light a lamp in the tank for 30 s. Each side's eyes see it depending on which way the body faces, so the swim feeds back into the brain: a closed loop. Its lab test (`follow-the-light`, registered and hashed before any lamp was lit) **fails**: with the lamp lit the worm stays ~42 µm *farther* from it on average than with it dark, and never gets within 0.5 mm. The light reaches the eyes and hundreds of cells fire, but the swimming cilia barely respond.
+- **Talk / poke / tug.** Tugs show word A to one half of the view and word B to the other in five passes (warm-up, then A|B, B|A, B|A, A|B), so each word is scored on each side equally often and the model's own left lean cancels. A calibration runs on a fresh worm at every start and is published (same word on both sides ≈ 0; swapping words flips the sign).
+- **The body:** the worm's own activity drives a simulated swimming body in a virtual tank (`shared/body.js`). Its ciliary bands push it forward in a helix, input to a ciliated cell stops it beating (one side: it turns; everywhere: it sinks), body-wall muscles steer, startle muscles brake. Live 3D tank with the last minute of its path, speed, depth, cilia and distance; every message reports how far it swam, how far its brain turned it and how long its cilia stopped. The body is part of the logged, hashed state, so the live check and replays cover it.
+- **Break the worm:** today's and all-time most cells firing at once. Only undisturbed runs are ranked.
+- **The lab** (`shared/lab.js`, `/lab.json`, `npm run lab`): registered experiments, each rule frozen and hashed before the first run, against 50 degree-preserving random rewirings. Results so far, stated plainly: the real wiring does **not** beat the rewired worms on any pass/fail test (light on one side reaching one side; touch reaching the startle muscles, including a second version registered after the first failed; swimming toward a lamp). Measured: light takes 300 ms to reach a muscle (rewired: ~67 ms), "█" fires the most cells, and a repeatedly poked spot drops to 8% by the tenth poke (the model's fatigue). Reproducible bit for bit: same results SHA-256 in Node and Bun. The server computes it once in a worker and caches it (`LAB=0` turns it off).
+- **Sound** (every firing cell clicks), **clips** (8-second square MP4/WebM rendered in the browser, message burned in), **share**.
+- **Proof:** live check badge, in-browser replay, the log as it's written, the hourly proof chain with Bitcoin timestamps, and a manifest of every number the model uses (measured or chosen).
+- **/stream** 16:9 layout for OBS, with an optional Twitch chat bridge (`!worm message`, `!poke`).
+- **/mod** phone-friendly moderation: pause chat or pokes, slow mode, hide, mute, announcements, blocklist.
+- **/launch** the $BRAINWORM launch (below).
+
 ## Deploy
 
-It needs a host that runs a long-lived Node process with WebSockets. Serverless platforms (Vercel, Netlify functions) won't work. Run **exactly one instance**: the worm lives in the server's memory.
+It needs a host that runs one long-lived Node process with WebSockets (Railway, Render, Fly, a VPS). Serverless won't work. Run **exactly one instance**: the worm lives in the server's memory. Put `LOG_DIR` on a persistent disk so logs, proofs, the leaderboard, mod settings and the launch state survive restarts.
 
-**Render** (simplest): push this repo to GitHub → Render dashboard → New → Blueprint → pick the repo. `render.yaml` sets everything up, including a generated `ADMIN_TOKEN`. Use a paid instance (Starter) so the worm doesn't go to sleep; free instances stop after 15 idle minutes and the worm restarts from rest.
-
-**Railway**: New project → Deploy from GitHub repo. Add the variable `TRUST_PROXY=1` (and `ADMIN_TOKEN`). It detects `npm start` by itself.
-
-**Anything with Docker** (Fly.io, a VPS): `docker build -t worm . && docker run -p 3000:3000 -e ADMIN_TOKEN=... worm`.
-
-Then point your domain at it and set `ALLOWED_ORIGINS=https://yourdomain` so other sites can't embed the live connection.
+Load test (2,000 simultaneous viewers with constant messages and pokes, one process): real time held at 30.0 steps/s, ~9 KB/s per viewer, ~21% of one CPU core. `node scripts/loadtest.js <url> <viewers> <seconds>`.
 
 ## Settings
 
-All optional, as environment variables (see `.env.example`).
-
-| Variable | What it does |
-|---|---|
-| `PORT` | Port to listen on (default 3000) |
-| `TRUST_PROXY` | Set to `1` behind Render/Railway/Fly/Cloudflare so rate limits see real visitor addresses |
-| `ADMIN_TOKEN` | Enables the admin endpoints below |
-| `ALLOWED_ORIGINS` | Comma-separated page origins allowed to open the live connection |
-| `SITE_TICKER` | Shown in the header, e.g. `$WORM` |
-| `SITE_CONTRACT` | Official contract address, shown in the header with a copy button |
-| `SITE_LINKS` | `Label|https://url,Label|https://url` links in the header |
-| `MSG_PER_MIN`, `POKES_PER_SEC`, `MAX_QUEUE`, `MAX_CONN_PER_IP`, `FEED_SIZE` | Limits |
-| `LOG_DIR` | Where event logs go (default `var/`) |
-
-## Chat safety
-
-- Links of any kind and wallet/contract addresses are refused, so nobody can post a fake contract address or phishing link in the feed.
-- Common profanity is replaced with asterisks.
-- `config/blocklist.txt` rejects extra phrases (starts with common scam lines). Edit it, then reload it without restarting.
-- Per-address rate limits on messages, pokes and connections.
-
-Admin endpoints (send `Authorization: Bearer $ADMIN_TOKEN`):
-
-```bash
-curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" https://yoursite/admin/clear                 # empty the feed
-curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" "https://yoursite/admin/hide?id=m1a2b3"      # remove one item
-curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" https://yoursite/admin/reload-blocklist
-```
+All optional, as environment variables (see `.env.example`): `PORT`, `TRUST_PROXY`, `ADMIN_TOKEN`, `ALLOWED_ORIGINS`, `PUBLIC_URL`, `LOG_DIR`, `CHUNK_MINUTES`, `OTS`, `TOKEN_MINT`, `BIG_BUY_SOL`, `TRADES_PER_SEC`, `TX_URL`, `SOLANA_RPC`, `SOLANA_WS`, `PUMPPORTAL_API_KEY`, `PINATA_JWT`, `POW_BITS`, `SITE_TICKER`, `SITE_CONTRACT`, `SITE_CHAIN`, `SITE_LINKS`, `TWITCH_CHANNEL`, `TWITCH_PREFIX`, and the rate limits.
 
 ## Checking it's real
 
-Every message and poke is written to a public log at `/log/current.jsonl` with the exact simulation step it hit the worm. The simulation is deterministic, so anyone can re-run it:
+- **Live:** every visitor's browser downloads the worm's exact state, runs the same code (`/shared/`), applies every stimulus at the step it happened, and compares SHA-256 state hashes with the server once a second. The simulation uses only arithmetic that every JavaScript engine computes identically (`shared/detmath.js`), so Chrome, Safari and Firefox all match the server bit for bit.
+- **Replay:** `npm run replay -- https://yoursite/log/current.jsonl`, or the "Replay this hour" button.
+- **Proof chain:** each hour's log ends with the hash of the state it left; the next hour starts from that exact state. Each hour's proof file names the log's SHA-256 and the previous proof's SHA-256, and is timestamped via OpenTimestamps (`/proof.json`, `/proof/<file>.txt`, `.ots`).
+- **Open data:** `/manifest.json`, `/board.json`, `/proof.json`, `/log/index.json`, `/log/<file>` are public with open CORS.
 
-```bash
-npm run replay -- https://yoursite/log/current.jsonl
-# Run 1: 214 messages and pokes, 214/214 summaries reproduced exactly
-```
+## $BRAINWORM launch (ready, not launched)
+
+1. A mod arms the launch on `/launch`. The first full-body startle after that is the launch moment; the arming and the moment go into the log, and a replay confirms the moment was the first startle and matches the logged state hash.
+2. The token image is rendered from the worm's exact activity at that step (`server/render.js`).
+3. On the owner's click, the image and metadata go to IPFS (through Pinata if `PINATA_JWT` is set, otherwise pump.fun's own uploader, which PumpPortal's docs now say is being retired).
+4. The server prepares the pump.fun create transaction (PumpPortal) with a fresh mint key signed in; the owner's wallet (Phantom, Solflare… via Wallet Standard) adds its signature and sends it. The server never holds the owner's key.
+5. When it confirms, the mint becomes the site's contract and trades reach the worm: buys poke the head end, sells the tail end, big buys flash light, each logged with its signature.
+
+## Chat safety and bots
+
+- Links and wallet/contract addresses are refused in chat, tugs and announcements, so nobody can post a fake contract; profanity is starred; `config/blocklist.txt` plus mod-added phrases; mutes by hashed address.
+- **Proof-of-work:** before a browser may send anything it solves a small SHA-256 puzzle in a background thread (`POW_BITS`, ~0.1 s at 16 bits on a laptop). Visitors never notice; a bot farm pays it for every connection, and it gets 4–16× harder automatically when new connections spike.
+- **Rate limits** per tab, per address (messages, pokes, tugs, new connections per minute) and globally (messages per second, pokes per second), plus a cap on open connections per address.
+- Everyone's pokes appear on everyone's screen with who made them, and the activity panel shows pokes and messages per minute.
 
 ## What is real and what is simplified
 
-This is stated on the site too.
-
-- **Real:** every cell, every connection and every synapse count comes from the published connectome. 1,199 cells are drawn at soma positions from the lab's 3D cell-type reconstructions; 1,009 without a published position are placed in their correct body segment and side; 467 fragments are simulated but not drawn.
-- **Simplified:** each cell is a firing-rate unit. Transmitter identity is unknown for most cells, so every synapse is treated as excitatory. One global gain (2.2) and slow per-cell fatigue. Nothing is trained.
-- **Our choices:** how the message maps onto the 26 eye photoreceptors (left half of the view to left eyes, right half to right eyes), that the 4 non-directional light sensors only respond to a mostly bright view, and which cells a poke activates (the touch sensors nearest the tap).
+- **Real:** every cell, connection and synapse count comes from the published connectome. 1,199 cells are drawn at soma positions from the lab's 3D cell-type reconstructions; 1,009 without a published position are placed in their correct segment and side; 467 fragments are simulated but not drawn.
+- **Simplified:** each cell is a firing-rate unit; every synapse is treated as excitatory (transmitters are unknown for most cells); one global gain (2.2) and slow per-cell fatigue. Nothing is trained.
+- **Chosen:** how the message maps onto the 26 eye photoreceptors, that the 4 non-directional light sensors only respond to a mostly bright view, which cells a poke activates, how trades map to pokes, how activity is drawn and sounded, and the swimming physics and tank (every number is in `/manifest.json`). The body doesn't feed back into the brain.
 
 ## Data and licence
 
-Wiring data: Verasztó C, Jasek S, Gühmann M, Bezares-Calderón LA, Williams EA, Shahidi R, Jékely G. *Whole-body connectome of a segmented annelid larva.* eLife (2025). https://elifesciences.org/articles/97964 · https://github.com/JekelyLab/Platynereis_3D_connectome_2024 · licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Changes: positions derived from the lab's 3D viewer files, re-encoded for the browser, simulation added. Not affiliated with or endorsed by the authors.
+Wiring data: Verasztó C, Jasek S, Gühmann M, Bezares-Calderón LA, Williams EA, Shahidi R, Jékely G. *Whole-body connectome of a segmented annelid larva.* eLife (2025). https://elifesciences.org/articles/97964 · https://github.com/JekelyLab/Platynereis_3D_connectome_2024 · licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Changes: positions and cell shapes derived from the lab's 3D viewer files, re-encoded for the browser, simulation and body added. Not affiliated with or endorsed by the authors.
 
 Rebuild `data/wiring.json` from the source repository (reproduces the committed file byte-for-byte):
 
