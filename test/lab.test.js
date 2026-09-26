@@ -29,6 +29,10 @@ const REGISTERED = [
   ['touch-startle-v2', '8fb53810d2dde841abde3f4fdd105f9b63ec8da509190711f19ba815210bbed5'],
   // registered with the lamp, before any lamp was lit (2026-09-26T23:02:45Z)
   ['follow-the-light', '1e9494bc67a7aeafc80fef41a65a81b56d7b06f874e3a530bb6645978dd02634'],
+  // registered with model v2, before any simulation of it was run (2026-09-26T23:42:58Z, data/registrations/model-v2.json)
+  ['eyespot-cilia', 'e54d9ed1efb8b92191d2b3933d2a3f7576fcb39c524edfa54df72dc22a6ed99f'],
+  ['startle-reflex', 'cb25e92da036a913ec4af16d16a599fe88a3e117370bb444a0414f327c5742b0'],
+  ['stop-and-go', 'e91ec5ca8d4c3bbbbb6d48eb44e05932b8e37cd056fc2383b27b4d0329dd0bde'],
 ];
 // SHA-256 of the canonical JSON of the five v1 protocols, recorded before any experiment ran
 const V1_SET = '8d3b25c2cc60e5346e0a0f58f151b3fa02952294520b4195bd7365e95fd6f1af';

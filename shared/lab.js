@@ -227,13 +227,96 @@ const PROTOCOLS_V3 = [
   },
 ];
 
+// Registered with model v2 (shared/model.js), before any simulation of model v2 was run. Each tests a
+// behaviour the lab has described in real larvae. The model's cilia rule comes from the same studies,
+// so a pass shows that the wiring supports the known mechanism, not an independent prediction.
+const PROTOCOLS_V4 = [
+  {
+    id: 'eyespot-cilia',
+    version: 1,
+    kind: 'eyespot-cilia',
+    registered: '2026-09-26',
+    registeredBefore: 'any simulation of model v2 was run',
+    title: 'One eyespot, one side',
+    question: 'Does light on one eyespot change the cilia on its own side?',
+    stimulus: 'A fresh worm at rest gets a drive of 1.0 into its left eyespot photoreceptors only (eye cells named eyespot-PRC… on the left side) for 30 steps (1 s). A second fresh worm gets the same into its right eyespot photoreceptors only.',
+    measure: 'Over the 60 steps (2 s) from onset, the mean arrest of the left ciliated cells minus the right ones, each cell\'s arrest by the model\'s cilia rule (shared/model.js). Laterality = ((left − right with left light) − (left − right with right light)) / 2; positive = the lit side\'s cilia stop more.',
+    control: `Wiring control: ${SCRAMBLES} Each cell keeps its transmitter; which cholinergic and serotonergic inputs each ciliated cell has is read from each scrambled wiring.`,
+    rule: `Passes if the real wiring's laterality is greater than 0 AND greater than p95 of the scrambles' lateralities; otherwise fails. ${P95}.`,
+    chosen: [
+      { name: 'drive', value: 1, why: 'the most a message gives one photoreceptor on the site' },
+      { name: 'light on', value: '30 steps (1 s)', why: 'as in eyes-sides' },
+      { name: 'window', value: '60 steps (2 s)', why: 'the light plus 1 s' },
+      ...scrambleChoices,
+      { name: 'pass threshold', value: 'above 0 and above the 95th percentile of the scrambles', why: 'the conventional 5% level, in the direction the lab reports' },
+    ],
+    caveats: [
+      'Jékely et al. 2008 describe illumination of one eyespot changing the beating of the cilia next to it, which with the larva\'s rotation steers it toward light.',
+      'The cilia rule comes from the same lab\'s studies, so this checks that the wiring carries the known mechanism.',
+    ],
+    seed: SEED,
+    params: { drive: 1, onSteps: 30, windowSteps: 60, scrambles: 50, swapsPerEdge: 10, percentile: 95 },
+  },
+  {
+    id: 'startle-reflex',
+    version: 1,
+    kind: 'cr-startle',
+    registered: '2026-09-26',
+    registeredBefore: 'any simulation of model v2 was run',
+    title: 'The startle reflex',
+    question: 'Does a vibration make it close its cilia and raise its parapodia together?',
+    stimulus: 'A fresh worm at rest gets a drive of 1.2 (the site\'s poke) for 10 steps into its collar receptor cells: sensory neurons whose name contains CR and that are not photoreceptors, the vibration sensors of Bezares-Calderón et al. 2018. For comparison, 10 fresh worms each get the same drive into as many other sensory neurons, drawn at random (not photoreceptors, not non-directional light sensors, not collar receptors or chaetal mechanosensors, with at least one outgoing synapse).',
+    measure: 'Over the 60 steps (2 s) from onset: the peak of st (the mean activity of the startle muscles) and the peak of the mean arrest of all ciliated cells (the model\'s cilia rule).',
+    control: `Within the real wiring: the other sensory neurons. Wiring control, with the collar receptors: ${SCRAMBLES}`,
+    rule: `Passes only if the collar receptors' startle peak is at least 2× the other-sensory mean AND greater than p95 of the scrambles' startle peaks, AND their cilia-arrest peak is at least 2× the other-sensory mean AND greater than p95 of the scrambles' arrest peaks; otherwise fails. ${P95}.`,
+    chosen: [
+      { name: 'drive', value: '1.2 for 10 steps', why: 'the site\'s poke, long enough to cross several synapses' },
+      { name: 'window', value: '60 steps (2 s)', why: 'as in touch-startle v2' },
+      { name: 'comparison', value: '10 random groups of other sensory neurons, as many as the collar receptors', why: 'as in touch-startle v1' },
+      { name: 'specificity factor', value: 2, why: 'as in the touch-startle protocols' },
+      ...scrambleChoices,
+      { name: 'pass threshold', value: 'every part above 2× the other senses and above the 95th percentile of the scrambles', why: 'both halves of the reflex, specifically' },
+    ],
+    caveats: [
+      'Bezares-Calderón et al. 2018: water vibrations make larvae close their locomotor cilia and raise their parapodia, through collar receptor neurons.',
+      'Every synapse outside the ciliary circuit is still modelled as excitatory.',
+    ],
+    seed: SEED,
+    params: { drive: 1.2, onSteps: 10, windowSteps: 60, otherDraws: 10, ratio: 2, scrambles: 50, swapsPerEdge: 10, percentile: 95 },
+  },
+  {
+    id: 'stop-and-go',
+    version: 1,
+    kind: 'mc-burst',
+    registered: '2026-09-26',
+    registeredBefore: 'any simulation of model v2 was run',
+    title: 'Stop and go',
+    question: 'When the rhythm\'s MC cell bursts, how much of the ciliary band stops together?',
+    stimulus: 'A fresh worm at rest gets the model\'s rhythm burst: a drive of 1.0 into the MC cell for 60 steps (2 s).',
+    measure: 'Over 90 steps (3 s) from onset, the largest share of ciliated cells stopped at once (arrest above 0.5), overall and for each band (prototroch, paratrochs, akrotroch, metatroch).',
+    control: `Reported for context, not a verdict: ${SCRAMBLES}`,
+    rule: 'Measured, no pass rule.',
+    chosen: [
+      { name: 'burst', value: 'drive 1.0 into MC for 60 steps', why: 'the model\'s rhythm burst' },
+      { name: 'stopped', value: 'arrest above 0.5', why: 'more stopped than beating' },
+      ...scrambleChoices,
+    ],
+    caveats: [
+      'Verasztó et al. 2017: the synchronous rhythmic activation of cholinergic cells drives the coordinated arrests of all cilia.',
+      'Registered after seeing which ciliated cells get cholinergic input (the metatroch gets none), not after any simulation.',
+    ],
+    seed: SEED,
+    params: { drive: 1, onSteps: 60, windowSteps: 90, stopped: 0.5, scrambles: 50, swapsPerEdge: 10, percentile: 95 },
+  },
+];
+
 function deepFreeze(x) {
   if (x && typeof x === 'object' && !Object.isFrozen(x)) { Object.freeze(x); for (const k of Object.keys(x)) deepFreeze(x[k]); }
   return x;
 }
 
 /** Every registered protocol, in order. Never edit one after its first run: add a new version. */
-export const PROTOCOLS = deepFreeze([...PROTOCOLS_V1, ...PROTOCOLS_V2, ...PROTOCOLS_V3]);
+export const PROTOCOLS = deepFreeze([...PROTOCOLS_V1, ...PROTOCOLS_V2, ...PROTOCOLS_V3, ...PROTOCOLS_V4]);
 
 /** JSON with object keys sorted at every level, no whitespace: the same bytes in every engine. */
 export function canonicalJson(x) {

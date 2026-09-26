@@ -1,0 +1,14 @@
+{
+ "what": "Model v2 and the tests registered with it, fingerprinted before any simulation of model v2 was run",
+ "registeredAt": "2026-09-26T23:42:58.451Z",
+ "sha256": {
+  "shared/model.js MODEL_V2": "f854f64a50c1ebabd4afed61f1b8e7903188cfeb39d3b71825751f64ea00a71b",
+  "data/transmitters.json": "ec601da7351db6bededb5a6835f8c2591268cbef92a3b963094a81fd31729aa1",
+  "protocol eyespot-cilia": "e54d9ed1efb8b92191d2b3933d2a3f7576fcb39c524edfa54df72dc22a6ed99f",
+  "protocol startle-reflex": "cb25e92da036a913ec4af16d16a599fe88a3e117370bb444a0414f327c5742b0",
+  "protocol stop-and-go": "e91ec5ca8d4c3bbbbb6d48eb44e05932b8e37cd056fc2383b27b4d0329dd0bde",
+  "all protocols (shared/lab.js protocolJson)": "2a9f11e31021b84a3c14de7e5cfba3ca2e8d0457c8c46cac47e500e138686ac2"
+ },
+ "registration": "7079b18ec99d049b0be83b4919277c9e90c0d7116fe9aa2352d4f0af26f8dad6",
+ "check": "sha256 of canonicalJson of each object; the .ots file next to this one timestamps this file in Bitcoin (opentimestamps.org)"
+}
