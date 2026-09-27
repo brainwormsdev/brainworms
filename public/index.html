@@ -28,6 +28,7 @@
 <link rel="modulepreload" href="/app.js">
 <link rel="modulepreload" href="/gl.js">
 <link rel="preload" href="/data/wiring.json" as="fetch" crossorigin>
+<link rel="preload" href="/data/transmitters.json" as="fetch" crossorigin>
 </head>
 <body class="intro loading">
 <a class="skip" href="#msg">Skip to the message box</a>
@@ -212,13 +213,13 @@
       <article class="exp">
         <p class="exphead">Talk <span class="pill live">Live</span></p>
         <h3>Say something to a larva</h3>
-        <p>Your message scrolls across its 26 eye cells as light. Solid blocks flood its light sensors and set off the whole body.</p>
+        <p>Your message scrolls across its 26 eye cells as light. Solid blocks also flood its non-directional light sensors.</p>
         <a class="more" href="#msg" data-go="say">say something →</a>
       </article>
       <article class="exp">
         <p class="exphead">Tug of worm <span class="pill live">Live</span> <span class="pill measured" id="calpill">Measured</span></p>
         <h3>Two words, one body</h3>
-        <p>One word per eye, sides swapped each pass so the model's left lean cancels. The score is which side's muscles pulled harder. Not a choice.</p>
+        <p>One word per eye, sides swapped each pass so any lean in the model cancels. The score is which way its body turned. Not a choice.</p>
         <dl class="cal" id="caltable"><div><dt>Rule, written first</dt><dd>The same word on both sides scores about zero, and swapping two words flips the sign.</dd></div></dl>
         <a class="more" href="#msg" data-go="tug">start a tug →</a>
       </article>
@@ -243,7 +244,7 @@
       <article class="exp">
         <p class="exphead">The launch <span class="pill" id="launchpill">Not armed</span></p>
         <h3>$BRAINWORM, from a logged moment</h3>
-        <p id="launchtext">Once armed, the worm's first full-body startle is the launch moment: logged, replayable, and drawn as the token's image. After launch, buys poke its head and sells its tail.</p>
+        <p id="launchtext">Once armed, the first time a touch makes it stop swimming is the launch moment: logged, replayable, and drawn as the token's image. After launch, buys poke its head and sells its tail.</p>
         <a class="more" href="/launch">launch status and proof →</a>
       </article>
       <article class="exp wide">
@@ -262,7 +263,7 @@
     <div class="lab" id="lab">
       <div class="labhead">
         <h3>Lab <span class="pill" id="labpill">Running</span></h3>
-        <p>Rules frozen before the first run. Control: 50 randomly rewired worms. <a href="/lab.json" target="_blank" rel="noopener">data</a></p>
+        <p>Model v2 and every rule <a href="/data/registrations/model-v2.json" target="_blank" rel="noopener">registered</a> before the first run. Control: 50 randomly rewired worms. <a href="/lab.json" target="_blank" rel="noopener">data</a> · <a href="/data/lab-model-v1.json" target="_blank" rel="noopener">model v1</a></p>
       </div>
       <ol class="labrows" id="labrows"><li class="empty">Running the experiments…</li></ol>
     </div>
@@ -285,7 +286,7 @@
       <ol class="steps">
         <li data-step="eyes"><span class="n">00</span><div><h3>Your message becomes light</h3><p>Drawn in a pixel font, one column per step. Each eye cell gets its strip's brightness; which strip is our choice.</p><span class="tag chosen">Chosen</span></div></li>
         <li data-step="web"><span class="n">01</span><div><h3>The wiring, as traced</h3><p>2,675 cells, 14,066 connections, 26,881 synapses, weighted by synapse count.</p><span class="tag real">Real</span></div></li>
-        <li data-step="model"><span class="n">02</span><div><h3>A simple model runs it</h3><p>Firing-rate cells, every synapse excitatory, one gain (2.2), slow fatigue. Nothing trained.</p><span class="tag simp">Simplified</span></div></li>
+        <li data-step="model"><span class="n">02</span><div><h3>A simple model runs it</h3><p>Firing-rate cells. Each connection's strength is its synapse count, scaled so the wiring can't amplify itself. Known transmitters decide when the cilia stop. Nothing trained.</p><span class="tag simp">Simplified</span></div></li>
         <li data-step="muscles"><span class="n">03</span><div><h3>What you see</h3><p>Each cell in its traced shape, lit by its activity. Sparks run from sender to receiver.</p><span class="tag chosen">Chosen</span></div></li>
         <li data-step="muscles"><span class="n">04</span><div><h3>The body swims</h3><p>Cilia and muscles drive a simulated body at about half a millimetre a second. With a lamp lit, where it swims changes what its eyes see. The physics numbers are ours.</p><span class="tag chosen">Chosen</span></div></li>
         <li data-step="log"><span class="n">05</span><div><h3>One worm, one log</h3><p>Every stimulus is logged with its step. Re-running the log reproduces every result.</p><span class="tag verify">Verifiable</span></div></li>
@@ -357,8 +358,8 @@
       <h2 class="display">The parts that aren't the worm</h2>
       <ul class="plain">
         <li><b>It can't read.</b> Your message reaches it only as light. It understands nothing.</li>
-        <li><b>It doesn't choose.</b> A tug shows which way its muscles pulled, not a preference. Nothing here predicts prices.</li>
-        <li><b>The model is simpler than the animal.</b> Every synapse excitatory, one shared gain. Real neurons spike, inhibit and modulate.</li>
+        <li><b>It doesn't choose.</b> A tug shows which way its body turned, not a preference. Nothing here predicts prices.</li>
+        <li><b>The model is simpler than the animal.</b> The transmitter is known for 79 of 2,675 cells, so almost every synapse is excitatory. Real neurons spike, inhibit and modulate.</li>
         <li><b>Some choices are ours.</b> The eye mapping, the light sensors' threshold, the poke cells, the swimming physics and the drawing.</li>
         <li><b>Positions are partly placed.</b> 1,199 cells at traced positions, 1,009 placed by segment and side, 467 fragments not drawn.</li>
         <li><b>The body is ours.</b> The glass outline, the swimming physics and the lamp are ours. Only the lamp feeds the body back into the brain.</li>

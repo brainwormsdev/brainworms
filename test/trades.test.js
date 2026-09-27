@@ -9,6 +9,7 @@ import { createWormServer } from '../server/server.js';
 import { b58encode } from '../server/solana.js';
 import { createMirror, mirrorEvent } from '../shared/mirror.js';
 import { replayLog } from '../scripts/replay.js';
+import { loadD } from './data.js';
 
 const sha256 = (b) => crypto.createHash('sha256').update(b).digest('hex');
 const sig = () => b58encode(crypto.randomBytes(64));
@@ -24,7 +25,7 @@ test('token trades reach the worm as logged, replayable pokes and flashes', asyn
   const { port } = await app.listen(0, '127.0.0.1');
   const msgs = [];
   const ws = new WebSocket(`ws://127.0.0.1:${port}/live`);
-  const D = JSON.parse(fs.readFileSync(new URL('../data/wiring.json', import.meta.url)));
+  const D = loadD();
   const mirror = createMirror(D, { sha256 });
   const checks = [];
   ws.on('message', async (d, bin) => {

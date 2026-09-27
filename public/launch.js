@@ -24,7 +24,7 @@ async function refresh() {
   if (!s) return;
   const set = (k, on, text) => { const li = document.querySelector(`[data-k="${k}"]`); li.classList.toggle('on', !!on); $('st-' + k).textContent = text; };
   set('armed', s.armed, s.armed ? `Armed at step ${s.armed.step.toLocaleString('en-US')} (${fmtTime(s.armed.at)}). Rule: the ${s.armed.rule}.` : 'Not armed yet.');
-  set('moment', s.moment, s.moment ? `Step ${s.moment.step.toLocaleString('en-US')}: ${s.moment.nAct.toLocaleString('en-US')} cells firing, startle level ${s.moment.startle}.` : s.armed ? 'Armed. Waiting for the first full-body startle.' : 'Waiting for the launch to be armed.');
+  set('moment', s.moment, s.moment ? `Step ${s.moment.step.toLocaleString('en-US')}: ${s.moment.nAct.toLocaleString('en-US')} cells firing, cilia stopped ${Math.round((s.moment.stop ?? s.moment.startle ?? 0) * 100)}%.` : s.armed ? 'Armed. Waiting for the first time a touch makes it stop swimming.' : 'Waiting for the launch to be armed.');
   set('metadata', s.metadata, s.metadata ? `Uploaded: ${s.metadata.uri}` : 'Uploaded to IPFS after the moment.');
   set('launched', s.launched, s.launched ? `Mint ${s.launched.mint}` : 'Created on pump.fun from the moment.');
   if (s.launched) {
@@ -68,7 +68,7 @@ const act = (btn, fn) => $(btn).addEventListener('click', async () => {
   $(btn).disabled = true;
   try { await fn(); } catch (e) { log('✗ ' + e.message); } finally { $(btn).disabled = false; refresh(); }
 });
-act('lparm', async () => { await admin('arm'); log('Armed. The first full-body startle from now is the moment.'); });
+act('lparm', async () => { await admin('arm'); log('Armed. The first time a touch makes it stop swimming from now is the moment.'); });
 act('lpdisarm', async () => { await admin('disarm'); log('Disarmed.'); });
 act('lpmeta', async () => {
   if (!confirm('Upload the moment image and metadata to pump.fun\'s IPFS? This publishes them.')) return;

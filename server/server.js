@@ -9,7 +9,7 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
 import { WormCore } from '../shared/worm.js';
-import { PARAMS, STEPS_PER_SECOND } from '../shared/sim.js';
+import { PARAMS, STEPS_PER_SECOND, inhibitorySynapses } from '../shared/sim.js';
 import { encodeFrame } from '../shared/frames.js';
 import { config as defaultConfig } from './config.js';
 import { checkMessage, findScam, loadBlocklist, RateLimiter } from './moderation.js';
@@ -21,6 +21,8 @@ import { TUG_ORDER, TUG_SCORED, TUG_GAP, MAX_POKE_CELLS, POKE_STEPS, POKE_DRIVE 
 import { BODY, UM_PER_UNIT } from '../shared/body.js';
 import { LAMP } from '../shared/lamp.js';
 import { startLab } from './lab.js';
+import { withTransmitters } from '../shared/data.js';
+import { MODEL_V2 } from '../shared/model.js';
 import { Board } from './board.js';
 import { ModState, Counter } from './modstate.js';
 import { makeHandle } from './names.js';
@@ -72,16 +74,23 @@ export function createWormServer(overrides = {}) {
   const stepMs = STEP_MS / (config.speed || 1);   // speed > 1 only in tests
   const wiringRaw = fs.readFileSync(path.join(ROOT, 'data', 'wiring.json'));
   const wiringHash = crypto.createHash('sha256').update(wiringRaw).digest('hex');
-  const D = JSON.parse(wiringRaw);
+  const txRaw = fs.readFileSync(path.join(ROOT, 'data', 'transmitters.json'));
+  const txHash = crypto.createHash('sha256').update(txRaw).digest('hex');
+  const D = withTransmitters(JSON.parse(wiringRaw), JSON.parse(txRaw));
   const dataDir = config.logDir ? path.resolve(ROOT, config.logDir) : null;
   if (dataDir) fs.mkdirSync(dataDir, { recursive: true });
 
   const mod = new ModState({ file: dataDir && path.join(dataDir, 'mod.json') });
-  const board = new Board({ size: L.boardSize, file: dataDir && path.join(dataDir, 'board.json') });
+  const board = new Board({ size: L.boardSize, file: dataDir && path.join(dataDir, 'board.json'), model: MODEL_V2.id });
   let fileBlocklist = loadBlocklist(path.resolve(ROOT, config.blocklistFile));
   const blocklist = () => (mod.extra.length ? fileBlocklist.concat(mod.extra) : fileBlocklist);
   const calibration = calibrateTug(D);
   // every number the model and the stimuli use, marked measured (from the data) or chosen (by us)
+  function makeInhibitoryList() {   // model v2's inhibitory synapses, by name
+    const inh = inhibitorySynapses(D), out = [];
+    for (let m = 0; m < inh.length; m++) if (inh[m]) out.push(`${D.n[D.e[3 * m]][0]} → ${D.n[D.e[3 * m + 1]][0]} (${D.e[3 * m + 2]} synapses)`);
+    return out;
+  }
   const manifest = {
     version: LOG_VERSION,
     data: {
@@ -89,14 +98,15 @@ export function createWormServer(overrides = {}) {
       synapses: D.e.reduce((s, v, k) => (k % 3 === 2 ? s + v : s), 0),
       source: 'Verasztó et al., Whole-body connectome of a segmented annelid larva, eLife 2025. https://github.com/JekelyLab/Platynereis_3D_connectome_2024 (CC BY 4.0)',
       rebuild: 'python3 scripts/build-data/build_wiring.py <lab repo> data/wiring.json reproduces the file byte-for-byte',
+      transmitters: { kind: 'measured', sha256: txHash, known: Object.keys(D.tx).length, source: 'the lab\'s cell-type table, column "transmitter phenotype"', rebuild: 'python3 scripts/build-data/build_transmitters.py <lab repo> data/wiring.json data/transmitters.json' },
     },
-    model: { kind: 'chosen', stepsPerSecond: STEPS_PER_SECOND, ...PARAMS, synapseSign: 'all excitatory (transmitters unknown for most cells)', weights: 'synapse count / total incoming synapses; nothing trained', tanh: 'shared/detmath.js, plain arithmetic so every engine agrees' },
+    model: { kind: 'chosen', id: MODEL_V2.id, registered: '/data/registrations/model-v2.json (with a Bitcoin timestamp)', stepsPerSecond: STEPS_PER_SECOND, ...PARAMS, rules: MODEL_V2.rules.map((r) => ({ [r.id]: r.rule })), notDone: MODEL_V2.notDone, references: MODEL_V2.references, inhibitorySynapses: [...makeInhibitoryList()], tanh: 'shared/detmath.js, plain arithmetic so every engine agrees' },
     eyes: { kind: 'chosen', view: text.VIEW, speed: text.SPEED, eyeGain: text.EYE_GAIN, flood: text.FLOOD, floodGain: text.FLOOD_GAIN, mapping: '13 left photoreceptors sample strips of the left half of the view, 13 right ones the right half' },
     poke: { kind: 'chosen', maxCells: MAX_POKE_CELLS, steps: POKE_STEPS, drive: POKE_DRIVE },
-    tug: { kind: 'chosen', order: TUG_ORDER, scored: TUG_SCORED, gapSteps: TUG_GAP },
-    body: { kind: 'chosen', ...BODY, umPerUnit: UM_PER_UNIT, physics: 'low Reynolds number: velocity proportional to force, no inertia; the body feeds back into the brain only through the lamp', cilia: 'input to a ciliated cell arrests it', muscles: 'left-minus-right body-wall activity steers', startle: 'startle muscles brake' },
+    tug: { kind: 'chosen', order: TUG_ORDER, scored: TUG_SCORED, gapSteps: TUG_GAP, score: 'how fast the body turned toward word A (rad/s), from its cilia and muscles as it steers, averaged over the scored passes; a tie below 0.0001' },
+    body: { kind: 'chosen', ...BODY, umPerUnit: UM_PER_UNIT, physics: 'low Reynolds number: velocity proportional to force, no inertia; the body feeds back into the brain only through the lamp', cilia: 'model v2: cholinergic input stops a ciliated cell, serotonergic input keeps it beating (shared/cilia.js)', muscles: 'left-minus-right body-wall activity steers', startle: 'startle muscles brake' },
     lamp: { kind: 'chosen', ...LAMP, eyes: 'each side\'s eyes look along (±0.8, 0.5, 0.33) in the body frame; a pigment cup passes light from its own side as the cosine of the angle off that axis', brightness: '1 / (1 + (d / falloff)^2)', drive: 'each side\'s 13 photoreceptors get min(1, 1.6 × light), like a message\'s lit strip; the non-directional light sensors do not respond', placement: 'lit `distance` units from the worm in a random direction, kept inside the tank', test: '/lab.json follow-the-light, registered before any lamp was lit' },
-    code: Object.fromEntries(['worm.js', 'sim.js', 'body.js', 'text.js', 'roles.js', 'state.js', 'replay.js', 'detmath.js', 'glyphs.js'].map((f) => [f, crypto.createHash('sha256').update(fs.readFileSync(path.join(ROOT, 'shared', f))).digest('hex')])),
+    code: Object.fromEntries(['worm.js', 'sim.js', 'model.js', 'cilia.js', 'body.js', 'lamp.js', 'text.js', 'roles.js', 'state.js', 'replay.js', 'detmath.js', 'glyphs.js', 'data.js'].map((f) => [f, crypto.createHash('sha256').update(fs.readFileSync(path.join(ROOT, 'shared', f))).digest('hex')])),
   };
   const ipKey = (ip) => 'ip:' + crypto.createHash('sha256').update(mod.salt + ip).digest('hex').slice(0, 16);
 
@@ -161,7 +171,7 @@ export function createWormServer(overrides = {}) {
   const proofUpdate = () => broadcast({ t: 'proof', proof: { head: publicProof(ledger.proofs(1)[0]) || null, chain: ledger.chainLength } });
   if (dataDir) {
     ledger = createLedger({
-      dir: dataDir, worm, wiringSha256: wiringHash, chunkMs: config.chunkMinutes * 60e3, ots: config.ots ? ots : null,
+      dir: dataDir, worm, wiringSha256: wiringHash, transmittersSha256: txHash, chunkMs: config.chunkMinutes * 60e3, ots: config.ots ? ots : null,
       onSealed: () => proofUpdate(), onUpgraded: () => proofUpdate(),
     });
   }
@@ -656,7 +666,7 @@ export function createWormServer(overrides = {}) {
     if (p === '/healthz') return json(res, 200, { ok: true, step: worm.step, watchers: clients.size, queue: worm.queue.length, v: LOG_VERSION });
     if (p === '/config.json') {
       return json(res, 200, {
-        site: siteInfo(), params: PARAMS, wiringSha256: wiringHash, stepsPerSecond: STEPS_PER_SECOND,
+        site: siteInfo(), params: PARAMS, wiringSha256: wiringHash, transmittersSha256: txHash, model: MODEL_V2.id, stepsPerSecond: STEPS_PER_SECOND,
         features: { ots: !!(ledger && config.ots), chunkMinutes: config.chunkMinutes, twitch: twitch ? twitch.status().channel : null, publicUrl: config.publicUrl },
         calibration,
       });

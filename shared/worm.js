@@ -5,8 +5,13 @@
 import { makeSim } from './sim.js';
 import { indexRoles, readouts } from './roles.js';
 import { renderText, renderHalf, applyEyes, applyEyesSplit, durationSteps, halfDurationSteps, SPEED } from './text.js';
-import { createBody, UM_PER_UNIT } from './body.js';
+import { createBody, BODY, UM_PER_UNIT } from './body.js';
 import { LAMP, lampDir, placeLamp, lampLight, applyLamp } from './lamp.js';
+import { ciliaInputs, beats, meanArrestAll } from './cilia.js';
+import { MODEL_V2 } from './model.js';
+
+const RHYTHM = MODEL_V2.params.rhythm;
+const RHYTHM_SETTLE = 90;   // steps after a rhythm burst before its arrests have faded (rate time constant 3 steps)
 
 export const MAX_POKE_CELLS = 6;
 export const POKE_STEPS = 5;
@@ -41,7 +46,22 @@ export class WormCore {
     this.onEvent = onEvent || (() => {});
     this.last = { nAct: 0, bend: 0, cil: 0, st: 0 };
     this.body = createBody();
+    this.cilia = ciliaInputs(D);
+    this.beat = { L: 1, R: 1, arrestL: 0, arrestR: 0 };
+    this.rhythmCell = D.n.findIndex((x) => x[0] === RHYTHM.cell);
   }
+
+  /** Model v2's stop-and-go rhythm: is the MC cell bursting on the step that starts at `step`? */
+  static rhythmOn(step) { return step >= RHYTHM.periodSteps && step % RHYTHM.periodSteps < RHYTHM.onSteps; }
+
+  /** Is `step` inside one of its own rhythm bursts or the few seconds after it? */
+  static rhythmNear(step) { return step >= RHYTHM.periodSteps && step % RHYTHM.periodSteps < RHYTHM.onSteps + RHYTHM_SETTLE; }
+
+  /**
+   * How hard its cilia are stopped (mean arrest of all ciliated cells) after the step just run, counted
+   * only outside its own stop-and-go bursts: a stop from something that happened to it (the launch signal).
+   */
+  stopLevel() { return WormCore.rhythmNear(this.stepCount - 1) ? 0 : meanArrestAll(this.cilia, this.sim.r); }
 
   get step() { return this.stepCount; }
   get N() { return this.sim.N; }
@@ -142,6 +162,7 @@ export class WormCore {
   tick() {
     const { sim, roles } = this;
     sim.ext.fill(0);
+    if (this.rhythmCell >= 0 && WormCore.rhythmOn(this.stepCount)) sim.ext[this.rhythmCell] += RHYTHM.drive;
 
     if (!this.current && this.queue.length) {
       const m = this.queue.shift();
@@ -193,10 +214,11 @@ export class WormCore {
     this.stepCount++;
     const ro = readouts(sim.r, roles);
     this.last = ro;
-    this.body.step(sim.r, roles, ro);
+    this.beat = beats(this.cilia, sim.r);
+    this.body.step(this.beat, ro);
 
     if (tugNow) {
-      tugNow.acc[tugPhase] += ro.bend;
+      tugNow.acc[tugPhase] += BODY.ciliaTurn * (this.beat.R - this.beat.L) + BODY.muscleTurn * ro.bend;   // the body's turn, + = left
       tugNow.n[tugPhase]++;
       if (tugNow.finished) this._tugResult(tugNow);
     }
@@ -216,11 +238,11 @@ export class WormCore {
   }
 
   _tugResult(m) {
-    // mean left-minus-right muscle activity in each scored pass; + score = the body bent toward word A
+    // how fast the body turned (rad/s, from its cilia and muscles, as it steers) in each scored pass; + score = toward word A
     const passes = m.acc.map((s, k) => s / m.n[k]);
     const scored = passes.filter((_, k) => TUG_SCORED[k]);
     const score = passes.reduce((s, v, k) => s + TUG_SCORED[k] * TUG_ORDER[k] * v, 0) / scored.length;
-    const result = { score: round5(score), winner: Math.abs(score) < 2e-5 ? 'tie' : score > 0 ? 'a' : 'b', phases: scored.map(round5) };
+    const result = { score: round5(score), winner: Math.abs(score) < 1e-4 ? 'tie' : score > 0 ? 'a' : 'b', phases: scored.map(round5) };
     const o = this.tracked.find((t) => t.id === m.id);
     if (o) o.tug = result;
     this.onEvent({ type: 'tug', id: m.id, step: this.stepCount, a: m.a, b: m.b, meta: m.meta, result });

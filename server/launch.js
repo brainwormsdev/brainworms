@@ -1,8 +1,10 @@
-// The $BRAINWORM launch: the worm's first full-body startle after arming sets the moment and the image.
+// The $BRAINWORM launch: the first time a touch makes the worm stop swimming after arming sets the
+// moment and the image.
 //
-//  1. armed:     a mod arms it. From then on, the first full-body startle (startle muscles above
-//                STARTLE) is "the moment". The arming step and the moment go into the event log, so a
-//                replay shows the moment really was the first startle after arming.
+//  1. armed:     a mod arms it. From then on, the first step where its cilia are stopped (mean arrest of
+//                all ciliated cells) above STOP, outside its own stop-and-go rhythm, is "the moment": its
+//                startle reflex (the lab: vibration makes larvae close their cilia). The arming step and
+//                the moment go into the event log, so a replay shows it really was the first one.
 //  2. moment:    the server renders the token image from the worm's exact activity at that step and
 //                publishes the step, the state hash and the image hash.
 //  3. metadata:  on a mod's click, the image and metadata are uploaded to pump.fun's IPFS.
@@ -16,7 +18,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { stateString } from '../shared/replay.js';
 
-export const STARTLE = 0.35;
+export const STOP = 0.05;
 export const TOKEN = { name: 'BRAINWORM', symbol: 'BRAINWORM' };
 const sha256 = (b) => crypto.createHash('sha256').update(b).digest('hex');
 const commas = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');   // same bytes on every Node build
@@ -41,10 +43,10 @@ export function createLaunch({ dir, worm, D, writeLog, render, solana, site = {}
     };
   }
 
-  function arm(rule = 'first full-body startle') {
+  function arm(rule = 'first time a touch stops its cilia') {
     if (s.moment) throw new Error('The moment has already been captured.');
     s.armed = { at: Date.now(), step: worm.step, rule };
-    writeLog({ k: 'launch-armed', step: worm.step, rule, startle: STARTLE });
+    writeLog({ k: 'launch-armed', step: worm.step, rule, stop: STOP });
     save();
   }
   function disarm() {
@@ -55,15 +57,17 @@ export function createLaunch({ dir, worm, D, writeLog, render, solana, site = {}
 
   /** Call after every simulation step. */
   function onStep() {
-    if (!s.armed || s.moment || worm.last.st <= STARTLE) return;
+    if (!s.armed || s.moment) return;
+    const level = worm.stopLevel();
+    if (level <= STOP) return;
     const state = stateString(worm);
     const act = Float32Array.from(worm.sim.r);
     const step = worm.step, stateSha256 = sha256(state);
     const lines = [`STEP ${commas(step)}`, `${commas(worm.last.nAct)} CELLS FIRING`];
     const png = render.renderActivityPNG({ D, act, width: 1000, height: 1000, layout: 'square', lines, footnote: `STATE SHA-256 ${stateSha256.slice(0, 16).toUpperCase()}` });
     fs.writeFileSync(path.join(root, 'moment.png'), png);
-    s.moment = { step, stateSha256, imageSha256: sha256(png), nAct: worm.last.nAct, startle: Math.round(worm.last.st * 1000) / 1000, capturedAt: Date.now(), rule: s.armed.rule };
-    writeLog({ k: 'launch-moment', step, stateSha256, imageSha256: s.moment.imageSha256, startle: STARTLE });
+    s.moment = { step, stateSha256, imageSha256: sha256(png), nAct: worm.last.nAct, stop: Math.round(level * 1000) / 1000, capturedAt: Date.now(), rule: s.armed.rule };
+    writeLog({ k: 'launch-moment', step, stateSha256, imageSha256: s.moment.imageSha256, stop: STOP });
     logger.log(`launch moment captured at step ${step}`);
     save();
   }
@@ -72,7 +76,7 @@ export function createLaunch({ dir, worm, D, writeLog, render, solana, site = {}
     const m = s.moment;
     return [
       'A simulation of a real marine worm larva\'s nervous system (Platynereis dumerilii, 2,675 cells, wired as published in eLife 2025), running live' + (publicUrl ? ` at ${publicUrl}` : '') + '.',
-      m ? `This image is the worm's activity at step ${m.step}, its first full-body startle after the launch was armed. State SHA-256 ${m.stateSha256}. Replay the log to check it.` : '',
+      m ? `This image is the worm's activity at step ${m.step}, the first time a touch made it stop swimming after the launch was armed. State SHA-256 ${m.stateSha256}. Replay the log to check it.` : '',
     ].filter(Boolean).join(' ');
   }
 

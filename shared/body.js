@@ -2,8 +2,8 @@
 //
 // What moves it (all chosen by us, in the spirit of what the lab describes for Platynereis larvae):
 //  - the ciliary bands push it forward, head first, and spin it about its long axis (larvae swim in a helix)
-//  - input to a ciliated cell arrests it: arrests on one side turn the body towards that side, arrests
-//    everywhere stop the push and let it sink
+//  - model v2's cilia rule (shared/cilia.js): cholinergic input stops a ciliated cell, serotonergic input
+//    keeps it beating; stops on one side turn the body towards that side, stops everywhere let it sink
 //  - body-wall muscles: more activity on one side steers it to that side
 //  - startle (chaetal and parapodial) muscles spread the bristles and brake it
 //  - the tank is ours: when it bumps the wall it turns away, towards whichever side its spinning body
@@ -16,7 +16,6 @@ export const BODY = Object.freeze({
   bias: 0.9,         // rad/s constant yaw, which with the spin makes a helical path
   ciliaTurn: 2.2,    // rad/s per unit of left-right beat difference
   muscleTurn: 16,    // rad/s per unit of left-minus-right muscle activity
-  arrestGain: 2.5,   // ciliated-cell activity → fraction of the band arrested
   sink: 0.7,         // units/s of sinking when fully arrested
   startleDrag: 5,    // how much the startle muscles brake it
   tank: 22,          // tank radius in units (~2.4 mm)
@@ -26,8 +25,6 @@ export const BODY = Object.freeze({
 export const UM_PER_UNIT = 107.995;   // the scale of data/wiring.json positions (data/morph.bin header)
 const DT = 1 / 30;
 
-const mean = (r, ix) => { let s = 0; for (const i of ix) s += r[i]; return ix.length ? s / ix.length : 0; };
-const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
 /** Rotate v by unit quaternion q = [w, x, y, z]. */
 export function rotate(q, v) {
@@ -54,10 +51,9 @@ export function createBody(P = BODY) {
   return {
     P,
     get state() { return s; },
-    /** One step. r = activity, roles from indexRoles, ro = readouts of this step. */
-    step(r, roles, ro) {
-      const arrestL = clamp01(mean(r, roles.cilL) * P.arrestGain), arrestR = clamp01(mean(r, roles.cilR) * P.arrestGain);
-      const beatL = 1 - arrestL, beatR = 1 - arrestR, beat = (beatL + beatR) / 2;
+    /** One step. beatIn = {L, R}, each side's ciliary beat (cilia.js beats()); ro = readouts of this step. */
+    step(beatIn, ro) {
+      const beatL = beatIn.L, beatR = beatIn.R, beat = (beatL + beatR) / 2;
       // steering in the body frame: +z turns the head towards the left side
       const steer = P.ciliaTurn * (beatR - beatL) + P.muscleTurn * ro.bend;
       const w = [0, P.spin * beat, P.bias + steer];

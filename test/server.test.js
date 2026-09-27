@@ -9,6 +9,7 @@ import { createWormServer } from '../server/server.js';
 import { replayLog } from '../scripts/replay.js';
 import { decodeFrame } from '../shared/frames.js';
 import { createMirror, mirrorEvent } from '../shared/mirror.js';
+import { loadD } from './data.js';
 
 const N = 2675;
 const sha256 = (b) => crypto.createHash('sha256').update(b).digest('hex');
@@ -43,7 +44,7 @@ test('two viewers share one worm; tugs, mods, leaderboard, and every chunk of th
     const a = client(port), b = client(port), c = client(port);
     await Promise.all([a.open, b.open, c.open]);
     // c is a browser checking the server live: it mirrors the worm and compares hashes every second
-    const D = JSON.parse(fs.readFileSync(new URL('../data/wiring.json', import.meta.url)));
+    const D = loadD();
     const mirror = createMirror(D, { sha256 });
     const checks = [];
     c.ws.on('message', async (data, isBinary) => {

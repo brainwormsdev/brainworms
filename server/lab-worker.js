@@ -2,11 +2,13 @@
 // and posts progress, then the results. Kept off the main thread so the live worm never stutters.
 import { parentPort, workerData } from 'node:worker_threads';
 import { runLab } from '../shared/lab.js';
+import { withTransmitters } from '../shared/data.js';
 
 const post = (m) => parentPort.postMessage(m);
 
 try {
-  const D = JSON.parse(new TextDecoder().decode(workerData.wiring));
+  const dec = new TextDecoder();
+  const D = withTransmitters(JSON.parse(dec.decode(workerData.wiring)), JSON.parse(dec.decode(workerData.transmitters)));
   const t0 = performance.now();
   let lastSent = -1;
   const lab = runLab(D, {

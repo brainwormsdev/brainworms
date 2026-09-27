@@ -9,17 +9,18 @@ import { PARAMS } from '../shared/sim.js';
 import { LOG_VERSION } from '../shared/replay.js';
 import { createLaunch } from '../server/launch.js';
 import { replayLog } from '../scripts/replay.js';
+import { loadD, wiringRaw, txRaw } from './data.js';
 
-const wiringRaw = fs.readFileSync(new URL('../data/wiring.json', import.meta.url));
-const D = JSON.parse(wiringRaw);
+const D = loadD();
 const sha256 = (b) => crypto.createHash('sha256').update(b).digest('hex');
 
-test('the launch moment is the first full-body startle after arming, and a replay confirms it', async () => {
+test('the launch moment is the first time a touch stops its cilia after arming, and a replay confirms it', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'launch-'));
-  const lines = [{ k: 'boot', v: LOG_VERSION, run: 't', chunk: 0, ts: 0, step: 0, params: PARAMS, wiringSha256: sha256(wiringRaw) }];
+  const lines = [{ k: 'boot', v: LOG_VERSION, run: 't', chunk: 0, ts: 0, step: 0, params: PARAMS, wiringSha256: sha256(wiringRaw), transmittersSha256: sha256(txRaw) }];
   const worm = new WormCore(D, {
     onEvent: (ev) => {
       if (ev.type === 'start') lines.push({ k: 'say', step: ev.step, id: ev.id, by: ev.meta.by, text: ev.text });
+      if (ev.type === 'poke') lines.push({ k: 'poke', step: ev.step, id: ev.id, by: ev.meta.by, cells: ev.cells });
       if (ev.type === 'done') lines.push({ k: 'done', step: ev.step, id: ev.id, summary: ev.summary });
     },
   });
@@ -39,12 +40,12 @@ test('the launch moment is the first full-body startle after arming, and a repla
   launch.arm();
   worm.say('m1', 'gm', { by: 'a' });
   for (let t = 0; t < 200; t++) { worm.tick(); launch.onStep(); }
-  assert.equal(launch.status().moment, null, 'a small message is not a full-body startle');
-  worm.say('m2', '█████', { by: 'b' });
+  assert.equal(launch.status().moment, null, 'a small message does not stop its cilia');
+  worm.poke('p1', worm.roles.touch.slice(0, 6), { by: 'b' });
   for (let t = 0; t < 600 && !launch.status().moment; t++) { worm.tick(); launch.onStep(); }
   const m = launch.status().moment;
-  assert.ok(m, 'the solid block startled it');
-  assert.ok(m.startle > 0.35);
+  assert.ok(m, 'a touch on the head stopped its cilia');
+  assert.ok(m.stop > 0.05);
   assert.ok(fs.existsSync(launch.imagePath));
   assert.equal(m.imageSha256, sha256(fs.readFileSync(launch.imagePath)));
   assert.throws(() => launch.arm(), /already/);
@@ -60,7 +61,7 @@ test('the launch moment is the first full-body startle after arming, and a repla
   // a forged moment (one step later) is caught
   const forged = lines.map((l) => (l.k === 'launch-moment' ? { ...l, step: l.step + 1 } : l));
   const bad = await replayLog(forged.map((l) => JSON.stringify(l)).join('\n'), wiringRaw);
-  assert.ok(bad.segments[0].warnings.some((w) => /first startle/.test(w)));
+  assert.ok(bad.segments[0].warnings.some((w) => /first trigger/.test(w)));
 
   // metadata, prepare and confirm go through the Solana module; the server never signs for the owner
   const meta = await launch.uploadMetadata({ twitter: 'https://x.com/brainworm' });
@@ -90,7 +91,7 @@ test('with a Pinata JWT configured, the launch uploads through Pinata', async ()
   const launch = createLaunch({ dir, worm, D, writeLog: () => {}, render, solana, pinataJwt: 'jwt-test' });
   assert.equal(launch.status().uploader, 'Pinata');
   launch.arm();
-  worm.say('m', '█████');
+  worm.poke('p', worm.roles.touch.slice(0, 6));
   for (let t = 0; t < 600 && !launch.status().moment; t++) { worm.tick(); launch.onStep(); }
   const meta = await launch.uploadMetadata();
   assert.equal(meta.uri, 'https://ipfs.io/ipfs/bafymeta');

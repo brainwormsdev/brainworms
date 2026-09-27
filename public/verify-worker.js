@@ -4,16 +4,18 @@
 import { createMirror } from '/shared/mirror.js';
 import { replayLog } from '/shared/replay.js';
 import { solvePow } from '/sha256.js';
+import { withTransmitters } from '/shared/data.js';
 
 const enc = new TextEncoder();
 const hex = (buf) => Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, '0')).join('');
 const sha256 = async (x) => hex(await crypto.subtle.digest('SHA-256', typeof x === 'string' ? enc.encode(x) : x));
 
-let wiringBytes = null, D = null, mirror = null;
+let wiringBytes = null, txBytes = null, D = null, mirror = null;
 async function wiring() {
   if (!wiringBytes) {
-    wiringBytes = new Uint8Array(await (await fetch('/data/wiring.json')).arrayBuffer());
-    D = JSON.parse(new TextDecoder().decode(wiringBytes));
+    [wiringBytes, txBytes] = await Promise.all(['/data/wiring.json', '/data/transmitters.json'].map(async (u) => new Uint8Array(await (await fetch(u)).arrayBuffer())));
+    const dec = new TextDecoder();
+    D = withTransmitters(JSON.parse(dec.decode(wiringBytes)), JSON.parse(dec.decode(txBytes)));
   }
   return D;
 }
@@ -43,7 +45,7 @@ async function handle(m) {
     const t0 = performance.now();
     await wiring();
     const text = await (await fetch(m.url, { cache: 'no-store' })).text();
-    const res = await replayLog(text, wiringBytes, { sha256, onProgress: (f) => postMessage({ t: 'replay-progress', id: m.id, f }) });
+    const res = await replayLog(text, wiringBytes, { sha256, transmittersBytes: txBytes, onProgress: (f) => postMessage({ t: 'replay-progress', id: m.id, f }) });
     postMessage({ t: 'replay-done', id: m.id, res, ms: performance.now() - t0, bytes: text.length, lines: text.split('\n').filter(Boolean).length });
   }
 }

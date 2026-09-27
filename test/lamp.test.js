@@ -9,9 +9,9 @@ import { encodeSnapshot, decodeSnapshot } from '../shared/state.js';
 import { stateString, LOG_VERSION } from '../shared/replay.js';
 import { PARAMS } from '../shared/sim.js';
 import { replayLog } from '../scripts/replay.js';
+import { loadD, wiringRaw, txRaw } from './data.js';
 
-const wiringRaw = fs.readFileSync(new URL('../data/wiring.json', import.meta.url));
-const D = JSON.parse(wiringRaw);
+const D = loadD();
 const sha256 = (b) => crypto.createHash('sha256').update(b).digest('hex');
 const HEAD_UP = { p: [0, 0, 0], q: [1, 0, 0, 0] };
 
@@ -73,7 +73,7 @@ test('a snapshot taken while a lamp is lit continues bit-for-bit', () => {
 });
 
 test('a logged lamp replays exactly', async () => {
-  const lines = [{ k: 'boot', v: LOG_VERSION, run: 't', chunk: 0, ts: 0, step: 0, params: PARAMS, wiringSha256: sha256(wiringRaw) }];
+  const lines = [{ k: 'boot', v: LOG_VERSION, run: 't', chunk: 0, ts: 0, step: 0, params: PARAMS, wiringSha256: sha256(wiringRaw), transmittersSha256: sha256(txRaw) }];
   const w = new WormCore(D, {
     onEvent: (e) => {
       if (e.type === 'start' && e.kind === 'lamp') lines.push({ k: 'lamp', step: e.step, id: e.id, by: e.meta.by, dir: e.dir, pos: e.pos });

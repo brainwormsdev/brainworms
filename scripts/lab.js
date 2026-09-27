@@ -11,6 +11,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PROTOCOLS, runLab, protocolJson } from '../shared/lab.js';
+import { withTransmitters } from '../shared/data.js';
 import { labIdentity, resultsSha256 } from '../server/lab.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -87,8 +88,8 @@ async function main() {
   const protocols = o.only ? PROTOCOLS.filter((p) => o.only.includes(p.id)) : PROTOCOLS;
   if (o.only && protocols.length !== o.only.length) { console.error(`unknown protocol in --only; known: ${PROTOCOLS.map((p) => p.id).join(', ')}`); process.exit(2); }
 
-  const { key, protocolSha256s, wiringRaw } = labIdentity({ root: ROOT, scrambles: o.scrambles });
-  const D = JSON.parse(wiringRaw);
+  const { key, protocolSha256s, wiringRaw, txRaw } = labIdentity({ root: ROOT, scrambles: o.scrambles });
+  const D = withTransmitters(JSON.parse(wiringRaw), JSON.parse(txRaw));
   console.log('BRAINWORM lab: pre-registered experiments on the Platynereis larva connectome (Verasztó et al., eLife 2025)');
   console.log(`wiring      ${D.n.length} cells, ${D.e.length / 3} connections   sha256 ${key.wiringSha256}`);
   console.log(`protocols   ${PROTOCOLS.length} registered   sha256 ${key.protocolSha256}   (SHA-256 of the canonical JSON of PROTOCOLS)`);

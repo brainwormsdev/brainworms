@@ -7,9 +7,11 @@ const dayKey = (ts) => new Date(ts).toISOString().slice(0, 10);
 const better = (a, b) => b.peak - a.peak || a.ts - b.ts;
 
 export class Board {
-  constructor({ size = 10, file = null } = {}) {
+  /** model: the model the scores come from; a board saved under another model starts fresh (its scale differs). */
+  constructor({ size = 10, file = null, model = null } = {}) {
     this.size = size;
     this.file = file;
+    this.model = model;
     this.day = { key: dayKey(Date.now()), list: [] };
     this.all = [];
     this.tugs = [];               // recent tug results, newest first
@@ -17,6 +19,7 @@ export class Board {
     if (file) {
       try {
         const s = JSON.parse(fs.readFileSync(file, 'utf8'));
+        if ((s.model || null) !== model) throw new Error('scores from another model');
         if (Array.isArray(s.all)) this.all = s.all;
         if (Array.isArray(s.tugs)) this.tugs = s.tugs;
         if (s.day && s.day.key === this.day.key && Array.isArray(s.day.list)) this.day = s.day;
@@ -77,7 +80,7 @@ export class Board {
     if (!this.file || this._saveTimer) return;
     this._saveTimer = setTimeout(() => {
       this._saveTimer = null;
-      fs.writeFile(this.file, JSON.stringify({ day: this.day, all: this.all, tugs: this.tugs }), () => {});
+      fs.writeFile(this.file, JSON.stringify({ model: this.model, day: this.day, all: this.all, tugs: this.tugs }), () => {});
     }, 1000);
     this._saveTimer.unref?.();
   }
@@ -85,6 +88,6 @@ export class Board {
   flush() {
     if (!this.file) return;
     clearTimeout(this._saveTimer); this._saveTimer = null;
-    try { fs.writeFileSync(this.file, JSON.stringify({ day: this.day, all: this.all, tugs: this.tugs })); } catch { /* disk gone */ }
+    try { fs.writeFileSync(this.file, JSON.stringify({ model: this.model, day: this.day, all: this.all, tugs: this.tugs })); } catch { /* disk gone */ }
   }
 }

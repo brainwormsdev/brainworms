@@ -4,21 +4,13 @@ import fs from 'node:fs';
 import zlib from 'node:zlib';
 import { WormCore } from '../shared/worm.js';
 import { renderActivityPNG } from '../server/render.js';
+import { loadD } from './data.js';
 
-const D = JSON.parse(fs.readFileSync(new URL('../data/wiring.json', import.meta.url)));
+const D = loadD();
 
-/** The worm shown "gm", at the step with the most cells firing (as scripts/make-og.js does). */
+/** A fixed activity pattern for the renderer: every fifth drawn cell active. The model isn't what's tested here. */
 function peakActivity() {
-  const worm = new WormCore(D);
-  worm.say('x', 'gm');
-  let best = -1, act = null;
-  for (let s = 0; s < 120; s++) {
-    worm.tick();
-    let n = 0;
-    for (const v of worm.sim.r) if (v > 0.05) n++;
-    if (n > best) { best = n; act = Float32Array.from(worm.sim.r); }
-  }
-  return act;
+  return Float32Array.from(D.n, (x, i) => (x[5] && i % 5 === 0 ? 0.8 : 0));
 }
 const PEAK = peakActivity();
 

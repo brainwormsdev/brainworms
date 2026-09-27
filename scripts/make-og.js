@@ -12,10 +12,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WormCore } from '../shared/worm.js';
+import { withTransmitters } from '../shared/data.js';
 import { renderActivityPNG } from '../server/render.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const D = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/wiring.json'), 'utf8'));
+const D = withTransmitters(JSON.parse(fs.readFileSync(path.join(ROOT, 'data/wiring.json'), 'utf8')), JSON.parse(fs.readFileSync(path.join(ROOT, 'data/transmitters.json'), 'utf8')));
 const commas = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 
 /** A real run: show the worm "gm" and keep the step with the most cells firing. */

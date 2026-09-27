@@ -13,9 +13,11 @@ import { paintLED, paintLEDLevels, eyeWindows, pixelWordmark } from '/pixel.js';
 import { createClipBuffer, recordClip, clipSupported, CLIP_SECONDS } from '/clip.js';
 import { mirrorEvent } from '/shared/mirror.js';
 import { loadMorph } from '/morph.js';
+import { withTransmitters } from '/shared/data.js';
 import { createTank } from '/tank.js';
 import { BODY, UM_PER_UNIT } from '/shared/body.js';
 import { LAMP, lampLight } from '/shared/lamp.js';
+import { ciliaInputs, beats, meanArrestAll } from '/shared/cilia.js';
 
 const $ = (id) => document.getElementById(id);
 const body = document.body;
@@ -33,7 +35,7 @@ const short = (h) => (h ? `${h.slice(0, 10)}…${h.slice(-6)}` : '—');
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 
 /* ---------- the data ---------- */
-const D = await fetch('/data/wiring.json').then((r) => r.json());
+const D = withTransmitters(...(await Promise.all(['/data/wiring.json', '/data/transmitters.json'].map((u) => fetch(u).then((r) => r.json())))));
 const N = D.n.length;
 const roles = indexRoles(D);
 const STEP_MS = 1000 / STEPS_PER_SECOND;
@@ -495,7 +497,7 @@ hero.addEventListener('pointerdown', (e) => {
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   if (pointers.size === 2) {
     const [a, b] = [...pointers.values()];
-    pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), dist: cam.dist };
+    pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), dist: cam.dist, mx: (a.x + b.x) / 2 };
     drag = null; clearTimeout(pressTimer); return;
   }
   drag = { x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, t: performance.now(), moved: false, id: e.pointerId, type: e.pointerType };
@@ -511,12 +513,15 @@ hero.addEventListener('pointermove', (e) => {
   if (pinch && pointers.size === 2) {
     const [a, b] = [...pointers.values()];
     cam.dist = Math.max(1.2, Math.min(7, pinch.dist * pinch.d / Math.max(20, Math.hypot(a.x - b.x, a.y - b.y))));
+    const mx = (a.x + b.x) / 2;   // two fingers sliding sideways turn it
+    cam.yaw -= (mx - pinch.mx) * 0.0065; pinch.mx = mx; aim.yaw = cam.yaw;
     userUntil = performance.now() + 12000; return;
   }
   if (drag && drag.id === e.pointerId) {
     const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
-    if (!drag.moved && Math.hypot(dx, dy) > 6) { drag.moved = true; clearTimeout(pressTimer); hero.classList.add('dragging'); clearInspect(); }
-    if (drag.moved) {
+    if (!drag.moved && Math.hypot(dx, dy) > 6) { drag.moved = true; clearTimeout(pressTimer); if (drag.type === 'mouse') hero.classList.add('dragging'); clearInspect(); }
+    // on a touch screen one finger always scrolls the page; turning the worm takes two fingers
+    if (drag.moved && drag.type === 'mouse') {
       const now = performance.now(), dtm = Math.max(1, now - drag.t) / 1000;
       const ddx = e.clientX - drag.lx, ddy = e.clientY - drag.ly;
       cam.yaw -= ddx * 0.0065;
@@ -814,8 +819,10 @@ function paintPanels(now, ro, stepNow) {
     }
   }
 }
+/** A tug score (rad/s the body turned) in degrees per second. */
+const degS = (v) => `${((v * 180) / Math.PI).toFixed(2)}°/s`;
 function knot(score) {
-  const x = Math.max(-1, Math.min(1, score / 0.0006));
+  const x = Math.max(-1, Math.min(1, score / 0.004));   // rad/s the body turned (tugs score ~0.0005 to 0.004)
   $('tugknot').style.left = (50 - x * 46) + '%';
 }
 function drawSpark() {
@@ -840,11 +847,13 @@ function banner(kind, k, t, s, ms = 4200) {
 }
 function flash() { if (reduceMotion) return; const f = $('flash'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); }
 let lastStartle = 0, wasStartled = false;
-function checkStartle(ro, now) {
-  const on = ro.st > 0.35;
+function checkStartle(ro, now, stepNow) {
+  // its startle reflex: a touch makes the cilia stop (outside its own stop-and-go rhythm)
+  const stop = WormCore.rhythmNear(Math.floor(stepNow)) ? 0 : meanArrestAll(CILIA, act8, 255);
+  const on = stop > 0.05;
   if (on && !wasStartled && now - lastStartle > 5000) {
-    lastStartle = now; flash(); shake = reduceMotion ? 0 : 1;
-    if (!(nowMsg && nowMsg.kind === 'tug')) banner('coral', 'Full-body startle', `${fmt(ro.nAct)} cells at once`, 'Chaetal and parapodial muscles all firing', 3200);
+    lastStartle = now; flash(); shake = reduceMotion ? 0 : 0.6;
+    if (!(nowMsg && nowMsg.kind === 'tug')) banner('coral', 'Startle reflex', 'It stopped swimming', `${Math.round(stop * 100)}% of its cilia stopped`, 3200);
   }
   wasStartled = on;
 }
@@ -858,8 +867,8 @@ function onTugResult(m) {
   const winWord = r.winner === 'a' ? m.a : r.winner === 'b' ? m.b : null;
   $('tugA').classList.toggle('win', r.winner === 'a'); $('tugB').classList.toggle('win', r.winner === 'b');
   $('tugpass').textContent = 'result'; knot(r.score);
-  $('tugnote').textContent = `score ${r.score > 0 ? '+' : ''}${r.score.toFixed(5)} toward ${m.a} · not a choice`;
-  banner('cyan', 'Tug result', winWord ? `The body bent toward ${winWord}` : 'Too close to call', 'Four passes, sides swapped', 6000);
+  $('tugnote').textContent = `turned ${degS(Math.abs(r.score))} toward ${r.score >= 0 ? m.a : m.b} · not a choice`;
+  banner('cyan', 'Tug result', winWord ? `The body turned toward ${winWord}` : 'Too close to call', 'Four passes, sides swapped', 6000);
   director = null;
   setTimeout(() => { if (!nowMsg || nowMsg.kind !== 'tug') $('tugbar').hidden = true; }, 7000);
 }
@@ -888,8 +897,8 @@ function resultNode(it) {
     if (!r) { res.textContent = it.step == null ? (it.ahead ? `→ waiting (${it.ahead} ahead)` : '→ up next') : '→ tugging…'; return res; }
     res.append('→ ');
     if (r.winner === 'tie') res.append('too close to call');
-    else { res.append('body bent toward '); res.append(el('span', 'win', r.winner === 'a' ? it.a : it.b)); }
-    res.append(` (${r.score > 0 ? '+' : ''}${r.score.toFixed(5)})`);
+    else { res.append('body turned toward '); res.append(el('span', 'win', r.winner === 'a' ? it.a : it.b)); }
+    res.append(` (${degS(Math.abs(r.score))})`);
     return res;
   }
   const s = it.summary;
@@ -956,7 +965,7 @@ function setBoard(b) {
     const li = el('li'), line = el('div', 'vsline');
     const A = el('b', t.result.winner === 'a' ? 'win' : '', t.a), B = el('b', t.result.winner === 'b' ? 'win' : '', t.b);
     line.append(A, el('i', null, 'vs'), B);
-    li.append(line, `${t.result.winner === 'tie' ? 'too close to call' : 'bent toward ' + (t.result.winner === 'a' ? t.a : t.b)} · ${t.result.score > 0 ? '+' : ''}${t.result.score.toFixed(5)} · ${utc(t.ts)}`);
+    li.append(line, `${t.result.winner === 'tie' ? 'too close to call' : 'turned toward ' + (t.result.winner === 'a' ? t.a : t.b)} · ${degS(Math.abs(t.result.score))} · ${utc(t.ts)}`);
     tl.append(li);
   }
   if (STREAM) renderStreamBoard();
@@ -1018,7 +1027,7 @@ const lc = { start: 0, checks: 0, bad: 0, last: null };
 const ua = navigator.userAgent;
 $('lcengine').textContent = (/Firefox\//.test(ua) ? 'SpiderMonkey (Firefox)' : /Edg\//.test(ua) ? 'V8 (Edge)' : /Chrome\//.test(ua) ? 'V8 (Chrome)' : /Safari\//.test(ua) ? 'JavaScriptCore (Safari)' : 'your browser') + ' vs V8 (server)';
 function setBadge(state, text) {
-  const b = $('verifybadge'); b.dataset.state = state; $('verifytext').textContent = text;
+  const b = $('verifybadge'); b.dataset.state = state; $('verifytext').textContent = innerWidth < 400 ? text.replace(/^Verified live/, 'Verified') : text;
   const pill = $('lcpill');
   pill.textContent = state === 'ok' ? 'Matching' : state === 'bad' ? 'Mismatch' : text.replace(/^Live check /, '');
   pill.className = 'pill ' + (state === 'ok' ? 'live' : state === 'bad' ? 'no' : 'pending');
@@ -1071,7 +1080,7 @@ function onVerifier(d) {
     r.className = 'result ' + (ok ? 'ok' : 'bad');
     r.textContent = ok
       ? `✓ ${fmt(matched)}/${fmt(checked)} results reproduced exactly. ${fmt(steps)} steps re-run in ${d.ms < 1000 ? Math.max(1, Math.round(d.ms)) + ' ms' : (d.ms / 1000).toFixed(1) + ' s'} on your device` + (segs.some((x) => x.endChecked) ? ', end-state hash matches.' : '.') + ` (${fmt(d.lines)} log lines)`
-        + segs.filter((x) => x.launch).map((x) => ` Launch moment at step ${fmt(x.launch.step)} checked: ${x.launch.firstOk === false ? 'NOT the first startle' : x.launch.firstOk ? 'first startle after arming' : 'armed in an earlier hour'}, state ${x.launch.stateOk ? 'matches' : 'DIFFERS'}.`).join('')
+        + segs.filter((x) => x.launch).map((x) => ` Launch moment at step ${fmt(x.launch.step)} checked: ${x.launch.firstOk === false ? 'NOT the first stop' : x.launch.firstOk ? 'first stop after arming' : 'armed in an earlier hour'}, state ${x.launch.stateOk ? 'matches' : 'DIFFERS'}.`).join('')
       : `✗ ${[...warn, ...mism].slice(0, 3).join(' · ')}`;
   } else if (d.t === 'error') {
     replaying = false; $('replaybtn').disabled = false;
@@ -1113,13 +1122,18 @@ fetch('/manifest.json').then((r) => r.json()).then((mf) => {
 }).catch(() => {});
 
 /* ---------- the lab ---------- */
+const pct = (v) => `${Math.round(v * 100)}%`;
 const LAB_SHORT = {
-  'eyes-sides': (x) => `lit side ${x.real.lateralization.toFixed(3)} · rewired p95 ${x.control.p95.toFixed(3)}`,
-  'touch-startle': (x) => `touch ${x.real.ratio.toFixed(2)}× other senses`,
-  'touch-startle-v2': (x) => `touch ${x.real.ratio.toFixed(2)}× other senses`,
+  'eyes-sides': (x) => `lit side ${x.real.lateralization.toFixed(4)} · rewired p95 ${x.control.p95.toFixed(4)}`,
+  'touch-startle': (x) => `startle ${x.real.touch.toFixed(4)} · rewired p95 ${x.control.p95.toFixed(4)}`,
+  'touch-startle-v2': (x) => `startle ${x.real.touch.toFixed(4)} · rewired p95 ${x.control.p95.toFixed(4)}`,
   'light-latency': (x) => `${fmt(x.real.ms)} ms · rewired ${fmt((x.control.mean * 1000) / STEPS_PER_SECOND)} ms`,
   alphabet: (x) => { const t = x.real.top && x.real.top[0]; return t ? `“${t.glyph}” fires most · ${fmt(t.peak)} cells` : ''; },
   fatigue: (x) => `10th poke ${Math.round(x.real.ratio * 100)}% of the 1st`,
+  'follow-the-light': (x) => `${Math.abs(x.real.attractionUm).toFixed(1)} µm ${x.real.attraction >= 0 ? 'closer' : 'farther'} · rewired p95 ${x.details.controlUm.p95.toFixed(1)} µm`,
+  'eyespot-cilia': (x) => `own side ${x.real.laterality.toFixed(4)} · rewired p95 ${x.control.p95.toFixed(4)}`,
+  'startle-reflex': (x) => `cilia stop ${pct(x.real.arrest)} · startle muscles ${x.real.startle.toFixed(4)}`,
+  'stop-and-go': (x) => `${pct(x.real.peak)} of cilia stop at once · rewired ${pct(x.control.mean)}`,
 };
 async function loadLab(tries = 0) {
   let r;
@@ -1129,6 +1143,8 @@ async function loadLab(tries = 0) {
   if (!d) return;
   if (!Array.isArray(d.results)) { if (d.state === 'running' && tries < 40) setTimeout(() => loadLab(tries + 1), 5000); return; }
   const fails = d.results.filter((x) => x.verdict === 'fails').length, passes = d.results.filter((x) => x.verdict === 'passes').length;
+  let v1 = {};
+  try { const o = await (await fetch('/data/lab-model-v1.json')).json(); for (const x of o.results || []) v1[x.id] = x.verdict; } catch { /* only the current model then */ }
   const pill = $('labpill');
   pill.textContent = `${passes} pass · ${fails} fail`; pill.className = 'pill ' + (fails ? 'no' : 'live');
   const lampTest = d.results.find((x) => x.id === 'follow-the-light');
@@ -1139,6 +1155,7 @@ async function loadLab(tries = 0) {
     if (x.protocol && x.protocol.registeredAfter) lt.append(el('small', null, `added after ${x.protocol.registeredAfter.replace(/^the /, '')}`));
     let short = ''; try { short = (LAB_SHORT[x.id] || (() => ''))(x); } catch { /* a result without these fields */ }
     const v = x.verdict === 'fails' ? ['Fails', 'no'] : x.verdict === 'passes' ? ['Passes', 'live'] : ['Measured', 'measured'];
+    if (v1[x.id]) lt.append(el('small', null, `model v1: ${v1[x.id]}`));
     sum.append(lt, el('span', 'lm', short), el('span', 'pill ' + v[1], v[0]));
     det.append(sum, el('p', null, x.summary), el('p', 'rule', `Rule: ${x.rule}`));
     li.append(det); ol.append(li);
@@ -1150,7 +1167,7 @@ function setLaunch(l) {
   const pill = $('launchpill');
   const st = l.launched ? ['Launched', 'live'] : l.metadata ? ['Ready to sign', 'pending'] : l.moment ? ['Moment captured', 'measured'] : l.armed ? ['Armed', 'pending'] : ['Not armed', ''];
   pill.textContent = st[0]; pill.className = 'pill ' + st[1];
-  if (l.moment && !l.launched) $('launchtext').textContent = `Launch moment: step ${fmt(l.moment.step)}, its first full-body startle after arming, ${fmt(l.moment.nAct)} cells firing. Replay the log to check it.`;
+  if (l.moment && !l.launched) $('launchtext').textContent = `Launch moment: step ${fmt(l.moment.step)}, the first time a touch made it stop swimming after arming. Replay the log to check it.`;
   if (l.launched) $('launchtext').textContent = `Launched. The token image is the worm at step ${fmt(l.moment ? l.moment.step : 0)}. Buys poke its head, sells its tail, each logged with its signature.`;
 }
 
@@ -1204,7 +1221,7 @@ function renderCalibration() {
   const row = (k, v, ok) => { const d = el('div'); d.append(el('dt', null, k), el('dd', ok ? 'ok' : '', v)); dl.append(d); };
   const swap = calibration.swap, big = Math.max(Math.abs(swap[0].score), Math.abs(swap[1].score));
   const sameMax = Math.max(...calibration.same.map((s) => Math.abs(s.score)));
-  const f = (v) => (v > 0 ? '+' : '') + v.toFixed(5);
+  const f = (v) => (v > 0 ? '+' : v < 0 ? '−' : '') + degS(Math.abs(v));
   row('Same word, both sides', calibration.same.map((s) => `${s.a}: ${f(s.score)}`).join(' · '), sameMax < 0.2 * big);
   row('Swapped pair', `${swap[0].a}|${swap[0].b} ${f(swap[0].score)} · ${swap[1].a}|${swap[1].b} ${f(swap[1].score)}`, Math.sign(swap[0].score) === -Math.sign(swap[1].score));
   row('Run', 'on a fresh worm every time the server starts', true);
@@ -1307,6 +1324,10 @@ $('sharebtn').addEventListener('click', async () => {
 /* ---------- first visit ---------- */
 function dismissCoach() { if (!$('coach').hidden) { $('coach').hidden = true; store.set('coached', true); } }
 function dismissHint() { $('hint').classList.add('gone'); }
+if (coarse) $('hint').textContent = 'Tap to poke · two fingers to turn';
+const narrowInput = matchMedia('(max-width: 420px)');
+const setPlaceholder = () => { $('msg').placeholder = narrowInput.matches ? 'Say something' : 'Say something to the worm'; };
+setPlaceholder(); narrowInput.addEventListener?.('change', setPlaceholder);
 $('coach').addEventListener('click', dismissCoach);
 
 /* ---------- the scroll story ---------- */
@@ -1357,6 +1378,7 @@ function endIntro() {
 addEventListener('scroll', () => { if (scrollY > 40) endIntro(); }, { passive: true });
 
 /* ---------- the swim panel ---------- */
+const CILIA = ciliaInputs(D);
 const tankView = createTank($('tank'), { tank: BODY.tank, umPerUnit: UM_PER_UNIT, still: reduceMotion });
 const tankBig = createTank($('tank2'), { tank: BODY.tank, umPerUnit: UM_PER_UNIT, still: reduceMotion });
 let swimVisible = true, bigVisible = false, swimShownAt = 0;
@@ -1365,9 +1387,8 @@ new IntersectionObserver((es) => { for (const e of es) bigVisible = e.isIntersec
 const setText = (id, t) => { const e = $(id); t = String(t); if (e.textContent !== t) e.textContent = t; };
 function paintSwim(now, ro) {
   if ((!swimVisible && !bigVisible) || STREAM) return;
-  // the same arrest rule the body uses, applied to the activity on screen
-  const arrest = (ix) => { let s = 0; for (const i of ix) s += act8[i]; return ix.length ? Math.min(1, (s / ix.length / 255) * BODY.arrestGain) : 0; };
-  const beatL = 1 - arrest(roles.cilL), beatR = 1 - arrest(roles.cilR), beat = (beatL + beatR) / 2;
+  // the same cilia rule the body uses (model v2), applied to the activity on screen
+  const bt = beats(CILIA, act8, 255), beatL = bt.L, beatR = bt.R, beat = (beatL + beatR) / 2;
   const lampPos = nowMsg && nowMsg.kind === 'lamp' && nowMsg.pos ? nowMsg.pos : null;
   const view = { p: pose.p, q: pose.q, trail: swimTrail, beat, st: Math.min(1, ro.st / 0.9), time: now / 1000, lamp: lampPos };
   if (swimVisible) tankView.draw(view);
@@ -1424,7 +1445,7 @@ function frame(now) {
   drawOverlay(now, dt, bendS, stS);
   paintPanels(now, ro, stepNow);
   paintSwim(now, ro);
-  checkStartle(ro, now);
+  checkStartle(ro, now, stepNow);
   sound.update(act8, panOf, stS);
   clipBuf.push({ t: now, act: act8, cam: drawCam, bend: bendS, st: stS, shock: shake, step: Math.floor(stepNow), msg: nowMsg, nAct: ro.nAct });
   // keep it smooth: if frames are slow for a while, render fewer pixels

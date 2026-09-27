@@ -4,8 +4,9 @@ import fs from 'node:fs';
 import { WormCore, TUG_ORDER, TUG_SCORED } from '../shared/worm.js';
 import { encodeSnapshot, decodeSnapshot } from '../shared/state.js';
 import { encodeFrame, decodeFrame, FRAME_DENSE, FRAME_SPARSE } from '../shared/frames.js';
+import { loadD } from './data.js';
 
-const D = JSON.parse(fs.readFileSync(new URL('../data/wiring.json', import.meta.url)));
+const D = loadD();
 
 function collect(w) { const ev = []; w.onEvent = (e) => ev.push(e); return ev; }
 
@@ -73,7 +74,7 @@ test('pokes are ignored while a tug plays, accepted again after', () => {
   assert.ok(w.poke('p2', w.roles.touch.slice(0, 3)));
 });
 
-test('frames round-trip, sparse at rest and dense when the body lights up', () => {
+test('frames round-trip, sparse at rest and dense when most of the body is active', () => {
   const w = new WormCore(D);
   const out = new Uint8Array(w.N);
   const rest = encodeFrame(w.sim.r, 7);
@@ -90,11 +91,13 @@ test('frames round-trip, sparse at rest and dense when the body lights up', () =
   for (let i = 0; i < w.N; i++) assert.equal(out[i], q[i] >= 2 ? q[i] : 0);
   assert.ok(f.length < 5 + w.N);
 
-  w.say('b', '█████');
-  let dense = null;
-  for (let t = 0; t < 400 && !dense; t++) { w.tick(); const g = encodeFrame(w.sim.r, w.step); if (g[0] === FRAME_DENSE) dense = g; }
-  assert.ok(dense, 'a full startle switches to the dense layout');
+  // when more than about a third of the cells are active, one byte per cell is smaller than a list
+  const busy = Float32Array.from({ length: w.N }, (_, i) => (i % 2 ? 0.6 : 0));
+  const dense = encodeFrame(busy, 9);
+  assert.equal(dense[0], FRAME_DENSE);
   assert.equal(dense.length, 5 + w.N);
+  assert.equal(decodeFrame(dense, out), 9);
+  for (let i = 0; i < w.N; i++) assert.equal(out[i], i % 2 ? 153 : 0);
 });
 
 test('a poke during a message is counted, not allowed to cut its summary short', () => {

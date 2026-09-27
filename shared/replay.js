@@ -8,8 +8,9 @@
 import { WormCore } from './worm.js';
 import { PARAMS } from './sim.js';
 import { encodeSnapshot, decodeSnapshot } from './state.js';
+import { withTransmitters } from './data.js';
 
-export const LOG_VERSION = 5;
+export const LOG_VERSION = 6;
 
 /** The canonical state string that gets hashed (queued messages are left out: they're logged when they start). */
 export const stateString = (worm) => JSON.stringify(encodeSnapshot({ ...worm.snapshot(), queue: [] }));
@@ -25,11 +26,14 @@ export function applyInput(worm, inp) {
 /**
  * @param {string} text the event log (JSONL)
  * @param {Uint8Array} wiringBytes the exact bytes of data/wiring.json
+ * @param {Uint8Array} opts.transmittersBytes the exact bytes of data/transmitters.json
  * @param {{sha256: (x: string|Uint8Array) => string|Promise<string>, onProgress?: (f: number) => void}} opts
  */
-export async function replayLog(text, wiringBytes, { sha256, onProgress = () => {} }) {
-  const D = JSON.parse(new TextDecoder().decode(wiringBytes));
-  const wiringHash = await sha256(wiringBytes);
+export async function replayLog(text, wiringBytes, { sha256, transmittersBytes, onProgress = () => {} }) {
+  if (!transmittersBytes) throw new Error('replay needs data/transmitters.json as well as data/wiring.json');
+  const dec = new TextDecoder();
+  const D = withTransmitters(JSON.parse(dec.decode(wiringBytes)), JSON.parse(dec.decode(transmittersBytes)));
+  const wiringHash = await sha256(wiringBytes), txHash = await sha256(transmittersBytes);
   const rows = text.split('\n').filter(Boolean).map((l) => JSON.parse(l));
   const segments = [];
   let seg = null;
@@ -47,6 +51,7 @@ export async function replayLog(text, wiringBytes, { sha256, onProgress = () => 
     else {
       if (head.v !== LOG_VERSION) warnings.push(`log was written by model version ${head.v}; this code is version ${LOG_VERSION}`);
       if (head.wiringSha256 !== wiringHash) warnings.push('wiring file differs from the one the server used');
+      if (head.transmittersSha256 !== txHash) warnings.push('transmitters file differs from the one the server used');
       if (JSON.stringify(head.params) !== JSON.stringify(PARAMS)) warnings.push('model parameters differ from the ones the server used');
       if (head.k === 'checkpoint') {
         if (await sha256(JSON.stringify(head.state)) !== head.stateSha256) warnings.push('checkpoint state does not match its own hash');
@@ -62,12 +67,12 @@ export async function replayLog(text, wiringBytes, { sha256, onProgress = () => 
     let last = worm.step;
     for (const r of rows) last = Math.max(last, r.step || 0);
     const span = Math.max(1, (end ? end.step : last) - first);
-    // the launch moment: from the arming step, the first step whose startle level passes the threshold
+    // the launch moment: from the arming step, the first step whose launch signal passes the threshold (model v2: the cilia stop level; older logs: the startle level)
     let watch = null, launch = null;
     const tickTo = (s) => {
       while (worm.step < s) {
         worm.tick();
-        if (watch && watch.first == null && worm.last.st > watch.threshold) watch.first = worm.step;
+        if (watch && watch.first == null && (watch.stop ? worm.stopLevel() : worm.last.st) > watch.threshold) watch.first = worm.step;
         if (worm.step % 3000 === 0) onProgress((worm.step - first) / span);
       }
     };
@@ -78,7 +83,7 @@ export async function replayLog(text, wiringBytes, { sha256, onProgress = () => 
         applyInput(worm, r);
       } else if (r.k === 'launch-armed') {
         tickTo(r.step);
-        watch = { from: r.step, threshold: r.startle, first: null };
+        watch = r.stop != null ? { from: r.step, threshold: r.stop, stop: true, first: null } : { from: r.step, threshold: r.startle, stop: false, first: null };
       } else if (r.k === 'launch-disarmed') {
         tickTo(r.step); watch = null;
       } else if (r.k === 'launch-moment') {
@@ -87,7 +92,7 @@ export async function replayLog(text, wiringBytes, { sha256, onProgress = () => 
         const firstOk = watch ? watch.first === r.step : null;
         launch = { step: r.step, stateOk, firstOk, armedAt: watch ? watch.from : null };
         if (!stateOk) warnings.push(`launch moment at step ${r.step}: state differs from the logged hash`);
-        if (firstOk === false) warnings.push(`launch moment logged at step ${r.step}, but the first startle after arming was at step ${watch.first}`);
+        if (firstOk === false) warnings.push(`launch moment logged at step ${r.step}, but the first trigger after arming was at step ${watch.first}`);
         watch = null;
       }
     }

@@ -17,7 +17,7 @@ export const sha256hex = (b) => crypto.createHash('sha256').update(b).digest('he
 export const checkpointState = (worm) => encodeSnapshot({ ...worm.snapshot(), queue: [] });
 export const stateSha = (enc) => sha256hex(JSON.stringify(enc));
 
-export function createLedger({ dir, worm, wiringSha256, chunkMs = 3600e3, ots = null, logger = console, onSealed = () => {}, onUpgraded = () => {} }) {
+export function createLedger({ dir, worm, wiringSha256, transmittersSha256 = null, chunkMs = 3600e3, ots = null, logger = console, onSealed = () => {}, onUpgraded = () => {} }) {
   const proofDir = path.join(dir, 'proof');
   fs.mkdirSync(proofDir, { recursive: true });
   const run = new Date().toISOString().replace(/[:.]/g, '-');
@@ -35,7 +35,7 @@ export function createLedger({ dir, worm, wiringSha256, chunkMs = 3600e3, ots = 
     name = `events-${run}-c${String(chunk).padStart(4, '0')}.jsonl`;
     fd = fs.openSync(path.join(dir, name), 'a');
     fromStep = worm.step; fromTs = Date.now(); lines = 0; nextCutAt = fromTs + chunkMs;
-    const head = { v: LOG_VERSION, run, chunk, ts: fromTs, step: worm.step, params: PARAMS, wiringSha256 };
+    const head = { v: LOG_VERSION, run, chunk, ts: fromTs, step: worm.step, params: PARAMS, wiringSha256, transmittersSha256 };
     write(state
       ? { k: 'checkpoint', ...head, prevLogSha256: chain.at(-1)?.logSha256 ?? null, stateSha256: stateSha(state), state }
       : { k: 'boot', ...head });

@@ -4,8 +4,9 @@ import fs from 'node:fs';
 import { WormCore } from '../shared/worm.js';
 import { renderText, VIEW, durationSteps } from '../shared/text.js';
 import { checkMessage, RateLimiter } from '../server/moderation.js';
+import { loadD } from './data.js';
 
-const D = JSON.parse(fs.readFileSync(new URL('../data/wiring.json', import.meta.url)));
+const D = loadD();
 
 function run(fn, steps = 500) {
   const events = [];
@@ -31,15 +32,16 @@ test('a message excites the worm and it settles again', () => {
   const { w, events, done } = run((w) => w.say('a', 'gm'));
   assert.ok(events.some((e) => e.type === 'start' && e.id === 'a' && e.step === 0));
   assert.equal(done.length, 1);
-  assert.ok(done[0].summary.peak > 50, `peak ${done[0].summary.peak}`);
+  assert.ok(done[0].summary.peak > 10, `peak ${done[0].summary.peak}`);
   assert.equal(done[0].summary.flood, 0);
   assert.equal(w.last.nAct, 0);
 });
 
-test('solid light floods the non-directional light sensors', () => {
-  const { done } = run((w) => w.say('a', '█████'));
-  assert.ok(done[0].summary.flood > 0);
-  assert.ok(done[0].summary.peak > 1500);
+test('solid light floods the non-directional light sensors and fires more cells than a word', () => {
+  const solid = run((w) => w.say('a', '█████')).done[0].summary, word = run((w) => w.say('a', 'gm')).done[0].summary;
+  assert.ok(solid.flood > 0);
+  assert.equal(word.flood, 0);
+  assert.ok(solid.peak > word.peak, `solid ${solid.peak}, word ${word.peak}`);
 });
 
 test('messages play one at a time, in order', () => {

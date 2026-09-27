@@ -15,8 +15,10 @@ import { replayLog as replay } from '../shared/replay.js';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const sha256 = (x) => crypto.createHash('sha256').update(x).digest('hex');
 
-/** Node wrapper: replayLog(text, wiringBuffer) with SHA-256 from node:crypto. */
-export const replayLog = (text, wiringRaw) => replay(text, new Uint8Array(wiringRaw), { sha256 });
+const TX = () => fs.readFileSync(path.join(ROOT, 'data', 'transmitters.json'));
+
+/** Node wrapper: replayLog(text, wiringBuffer[, transmittersBuffer]) with SHA-256 from node:crypto. */
+export const replayLog = (text, wiringRaw, txRaw = TX()) => replay(text, new Uint8Array(wiringRaw), { sha256, transmittersBytes: new Uint8Array(txRaw) });
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const src = process.argv[2];

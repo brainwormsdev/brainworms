@@ -19,7 +19,7 @@ const SHARED = path.join(ROOT, 'shared');
 const sha256 = (x) => crypto.createHash('sha256').update(x).digest('hex');
 
 /** Every file whose code can change a lab result (the lab, the model, the stimuli, the readouts). */
-export const LAB_CODE_FILES = ['lab.js', 'sim.js', 'detmath.js', 'roles.js', 'worm.js', 'text.js', 'glyphs.js', 'body.js', 'lamp.js'];
+export const LAB_CODE_FILES = ['lab.js', 'sim.js', 'detmath.js', 'roles.js', 'worm.js', 'text.js', 'glyphs.js', 'body.js', 'lamp.js', 'cilia.js', 'model.js', 'data.js'];
 
 /**
  * What a set of lab results depends on, as hashes. Also used by scripts/lab.js, so the command line
@@ -28,17 +28,19 @@ export const LAB_CODE_FILES = ['lab.js', 'sim.js', 'detmath.js', 'roles.js', 'wo
  */
 export function labIdentity({ root = ROOT, scrambles } = {}) {
   const wiringRaw = fs.readFileSync(path.join(root, 'data', 'wiring.json'));
+  const txRaw = fs.readFileSync(path.join(root, 'data', 'transmitters.json'));
   const code = crypto.createHash('sha256');
   for (const f of LAB_CODE_FILES) code.update(`${f}\n${sha256(fs.readFileSync(path.join(SHARED, f)))}\n`);
   const key = {
     labVersion: LAB_VERSION,
     protocolSha256: sha256(protocolJson()),
     wiringSha256: sha256(wiringRaw),
+    transmittersSha256: sha256(txRaw),
     codeSha256: code.digest('hex'),
     scrambles: scrambles ?? 'registered',
   };
   const protocolSha256s = Object.fromEntries(PROTOCOLS.map((p) => [p.id, sha256(canonicalJson(p))]));
-  return { key, protocolSha256s, wiringRaw };
+  return { key, protocolSha256s, wiringRaw, txRaw };
 }
 
 /** SHA-256 of the canonical JSON of the results array: equal on every machine that reproduces the lab. */
@@ -63,7 +65,7 @@ export function startLab({ root = ROOT, logDir, logger = console, onDone = () =>
   const existing = handles.get(slot);
   if (existing) { existing.listen(onDone); return existing.handle; }
 
-  const { key, protocolSha256s, wiringRaw } = labIdentity({ root, scrambles });
+  const { key, protocolSha256s, wiringRaw, txRaw } = labIdentity({ root, scrambles });
   const listeners = [onDone];
   let state = 'running', progress = { fraction: 0 }, results = null, error = null, cached = false;
   let startedAt = new Date().toISOString(), finishedAt = null, worker = null;
@@ -98,7 +100,7 @@ export function startLab({ root = ROOT, logDir, logger = console, onDone = () =>
   if (!cached) {
     const t0 = Date.now();
     // execArgv: [] so flags meant for the parent (--input-type, --watch, -e ...) don't break the worker
-    worker = new Worker(new URL('./lab-worker.js', import.meta.url), { workerData: { wiring: new Uint8Array(wiringRaw), scrambles }, execArgv: [] });
+    worker = new Worker(new URL('./lab-worker.js', import.meta.url), { workerData: { wiring: new Uint8Array(wiringRaw), transmitters: new Uint8Array(txRaw), scrambles }, execArgv: [] });
     if (unref) worker.unref();
     logger.log(`[lab] running ${PROTOCOLS.length} registered experiments in a worker (protocols ${key.protocolSha256.slice(0, 12)}…)`);
     worker.on('message', (m) => {

@@ -12,8 +12,9 @@ import {
   drawCells, deriveSeed, mulberry32, quantile, describe, percentileOf, upperP, startlePeak,
 } from '../shared/lab.js';
 import { startLab, resultsSha256 } from '../server/lab.js';
+import { loadD } from './data.js';
 
-const D = JSON.parse(fs.readFileSync(new URL('../data/wiring.json', import.meta.url)));
+const D = loadD();
 const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
 const M = D.e.length / 3;
 
@@ -204,7 +205,7 @@ test('smoke run: every protocol runs with 3 scrambles, deterministically', () =>
     } else {
       assert.equal(r.control, null); assert.equal(r.deviation, null);
     }
-    if (/No pass rule/.test(p.rule)) assert.equal(r.verdict, 'measured');
+    if (/no pass rule/i.test(p.rule)) assert.equal(r.verdict, 'measured');
     else assert.notEqual(r.verdict, 'measured');
   }
   assert.doesNotThrow(() => canonicalJson(lab.results));   // finite numbers only, nothing undefined

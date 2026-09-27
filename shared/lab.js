@@ -18,9 +18,11 @@ import { indexRoles, readouts, ROLE } from './roles.js';
 import { WormCore } from './worm.js';
 import { GLYPHS } from './glyphs.js';
 import { LAMP, placeLamp, lampDir } from './lamp.js';
+import { ciliaInputs, beats, meanArrestAll, arrestOf } from './cilia.js';
+import { MODEL_V2 } from './model.js';
 import { BODY, UM_PER_UNIT } from './body.js';
 
-export const LAB_VERSION = 1;
+export const LAB_VERSION = 2;   // 2: results from model v2 (shared/model.js); version 1's results are kept in data/lab-model-v1.json
 
 const SEED = 20260926;   // chosen: the date these protocols were written, before any result existed
 
@@ -533,12 +535,12 @@ export function labCells(D, roles = indexRoles(D)) {
 }
 
 /**
- * Below this activity everywhere, with no input, no cell can reach the firing threshold again: every
- * synapse is excitatory, each cell's incoming weights sum to 1 and fatigue only subtracts, so a cell's
- * input stays under gain × (max activity) = theta / 2. From then on activity only decays, so every
- * peak measured so far is final. (test/lab.test.js checks that stopping here changes nothing.)
+ * Below this activity everywhere, with no input, no cell can reach the firing threshold again: a cell's
+ * excitatory input weights add up to at most sim.maxIn, inhibitory synapses and fatigue only subtract,
+ * so its input stays under maxIn × (max activity) = theta / 2. From then on activity only decays, so
+ * every peak measured so far is final. (test/lab.test.js checks that stopping here changes nothing.)
  */
-export const quietLevel = (P) => P.theta / (2 * P.gain);
+export const quietLevel = (sim) => sim.P.theta / (2 * sim.maxIn);
 
 /**
  * Drive `cells` with `drive` for the first `onSteps` of `steps` steps from rest; calls each(t, sim)
@@ -546,7 +548,7 @@ export const quietLevel = (P) => P.theta / (2 * P.gain);
  */
 function drivePulse(sim, cells, drive, onSteps, steps, each, stopWhenQuiet = false) {
   sim.reset();
-  const quiet = stopWhenQuiet ? quietLevel(sim.P) : -1;
+  const quiet = stopWhenQuiet ? quietLevel(sim) : -1;
   for (let t = 1; t <= steps; t++) {
     sim.ext.fill(0);
     if (t <= onSteps) for (const i of cells) sim.ext[i] += drive;
@@ -842,13 +844,123 @@ function phototaxis(ctx) {
   };
 }
 
-const ENGINES = { 'eyes-sides': eyesSides, 'touch-startle': touchStartle, 'touch-startle-single': touchStartleSingle, 'light-latency': lightLatency, alphabet, fatigue, phototaxis };
+/* Model v2's protocols: the cilia rule (shared/cilia.js) is read from each wiring, scrambles included. */
+
+function eyespotCilia(ctx) {
+  const { D, cells, prm } = ctx, { roles } = cells;
+  const eyespot = (list) => list.filter((i) => /^eyespot-PRC/.test(D.n[i][0] || ''));
+  const left = eyespot(roles.eyeL), right = eyespot(roles.eyeR);
+  const run = (W) => {
+    const sim = makeSim(W), ci = ciliaInputs(W);
+    const one = (set) => {
+      let d = 0;
+      drivePulse(sim, set, prm.drive, prm.onSteps, prm.windowSteps, (t, s) => { const b = beats(ci, s.r); d += b.arrestL - b.arrestR; });
+      return d / prm.windowSteps;
+    };
+    const withLeft = one(left), withRight = one(right);
+    return { laterality: (withLeft - withRight) / 2, withLeft, withRight };
+  };
+  const real = run(D); ctx.tick();
+  const scr = scrambleLoop(ctx, run);
+  const vals = scr.map((s) => s.laterality);
+  const control = describe(vals, prm.percentile / 100);
+  const passes = real.laterality > 0 && real.laterality > control.p95;
+  return {
+    real: { ...real, leftCells: left.map((i) => name(D, i)), rightCells: right.map((i) => name(D, i)) },
+    control, percentile: percentileOf(vals, real.laterality), p: upperP(vals, real.laterality),
+    verdict: passes ? 'passes' : 'fails',
+    details: {},
+    summary: `Laterality ${fmt(real.laterality)}: with the left eyespot lit the left cilia were stopped ${fmt(real.withLeft)} more than the right; with the right lit, ${fmt(-real.withRight)} more on the right. Scramble p95 ${fmt(control.p95)}: ${passes ? 'passes' : 'fails'}.`,
+  };
+}
+
+function crStartle(ctx) {
+  const { D, cells, prm, seed } = ctx, { roles } = cells;
+  const N = D.n.length, outDeg = new Int32Array(N);
+  for (let k = 0; k < D.e.length; k += 3) outDeg[D.e[k]]++;
+  const isCR = (i) => D.n[i][1] === 0 && /CR/.test(D.n[i][0] || '') && !(D.n[i][6] & ROLE.EYE);
+  const cr = []; const pool = [];
+  for (let i = 0; i < N; i++) {
+    if (isCR(i)) cr.push(i);
+    else if (D.n[i][1] === 0 && !(D.n[i][6] & (ROLE.EYE | ROLE.CPRC)) && !/CR|chaeMech/.test(D.n[i][0] || '') && outDeg[i] > 0) pool.push(i);
+  }
+  const peaks = (sim, ci, set) => {
+    let st = 0, arrest = 0;
+    drivePulse(sim, set, prm.drive, prm.onSteps, prm.windowSteps, (t, s) => {
+      const v = meanOf(s.r, roles.startle); if (v > st) st = v;
+      const a = meanArrestAll(ci, s.r); if (a > arrest) arrest = a;
+    });
+    return { st, arrest };
+  };
+  const simReal = makeSim(D), ciReal = ciliaInputs(D);
+  const real = peaks(simReal, ciReal, cr); ctx.tick();
+  const draws = [];
+  for (let k = 0; k < prm.otherDraws; k++) {
+    const set = drawCells(pool, cr.length, deriveSeed(seed, 'cr-other', k));
+    draws.push({ ...peaks(simReal, ciReal, set), cells: set.map((i) => name(D, i)) });
+    ctx.tick();
+  }
+  let oSt = 0, oAr = 0;
+  for (const d of draws) { oSt += d.st; oAr += d.arrest; }
+  oSt /= draws.length; oAr /= draws.length;
+  const scr = scrambleLoop(ctx, (W) => peaks(makeSim(W), ciliaInputs(W), cr));
+  const cSt = describe(scr.map((s) => s.st), prm.percentile / 100), cAr = describe(scr.map((s) => s.arrest), prm.percentile / 100);
+  const cond = {
+    startleSpecific: real.st >= prm.ratio * oSt, startleAboveScrambles: real.st > cSt.p95,
+    arrestSpecific: real.arrest >= prm.ratio * oAr, arrestAboveScrambles: real.arrest > cAr.p95,
+  };
+  const passes = Object.values(cond).every(Boolean);
+  const failed = [!cond.startleSpecific && `startle under ${prm.ratio}× the other senses`, !cond.startleAboveScrambles && 'startle does not beat the scramble p95',
+    !cond.arrestSpecific && `cilia arrest under ${prm.ratio}× the other senses`, !cond.arrestAboveScrambles && 'cilia arrest does not beat the scramble p95'].filter(Boolean);
+  return {
+    real: { startle: real.st, arrest: real.arrest, otherStartle: oSt, otherArrest: oAr, crCells: cr.length },
+    control: cSt, percentile: percentileOf(scr.map((s) => s.st), real.st), p: upperP(scr.map((s) => s.st), real.st),
+    verdict: passes ? 'passes' : 'fails',
+    details: { conditions: cond, arrestControl: cAr, arrestPercentile: percentileOf(scr.map((s) => s.arrest), real.arrest), crNames: cr.map((i) => name(D, i)), otherCandidates: pool.length, otherDraws: draws },
+    summary: `Collar receptors drove the startle muscles to ${fmt(real.st)} (other senses ${fmt(oSt)}, scramble p95 ${fmt(cSt.p95)}) and the cilia to a mean arrest of ${fmt(real.arrest)} (other senses ${fmt(oAr)}, scramble p95 ${fmt(cAr.p95)}). ${passes ? 'Passes' : `Fails: ${failed.join('; ')}`}.`,
+  };
+}
+
+function mcBurst(ctx) {
+  const { D, prm } = ctx;
+  const mc = D.n.findIndex((x) => x[0] === 'MC');
+  if (mc < 0) throw new Error('stop-and-go: no cell named MC');
+  const run = (W, detail) => {
+    const sim = makeSim(W), ci = ciliaInputs(W);
+    const bands = {};
+    for (const x of ci.cells) (bands[x.band] ||= []).push(x);
+    let peak = 0; const bandPeak = {};
+    drivePulse(sim, [mc], prm.drive, prm.onSteps, prm.windowSteps, (t, s) => {
+      let n = 0;
+      for (const x of ci.cells) if (arrestOf(x, s.r) > prm.stopped) n++;
+      if (n / ci.cells.length > peak) peak = n / ci.cells.length;
+      if (detail) for (const [b, list] of Object.entries(bands)) {
+        let m = 0; for (const x of list) if (arrestOf(x, s.r) > prm.stopped) m++;
+        if (!(bandPeak[b] >= m / list.length)) bandPeak[b] = m / list.length;
+      }
+    });
+    return detail ? { peak, bandPeak, cilia: ci.cells.length } : peak;
+  };
+  const real = run(D, true); ctx.tick();
+  const scr = scrambleLoop(ctx, (W) => run(W, false));
+  const control = describe(scr, prm.percentile / 100);
+  const pct = (v) => `${Math.round(v * 100)}%`;
+  return {
+    real, control, percentile: percentileOf(scr, real.peak), p: upperP(scr, real.peak),
+    verdict: 'measured',
+    details: {},
+    summary: `An MC burst stopped at most ${pct(real.peak)} of the ${real.cilia} ciliated cells at once (${Object.entries(real.bandPeak).map(([b, v]) => `${b} ${pct(v)}`).join(', ')}); scrambles: mean ${pct(control.mean)}, p95 ${pct(control.p95)}.`,
+  };
+}
+
+const ENGINES = { 'eyespot-cilia': eyespotCilia, 'cr-startle': crStartle, 'mc-burst': mcBurst, 'eyes-sides': eyesSides, 'touch-startle': touchStartle, 'touch-startle-single': touchStartleSingle, 'light-latency': lightLatency, alphabet, fatigue, phototaxis };
 
 /** How many progress units an experiment reports (its real runs plus one per scramble). */
 function unitsOf(protocol, n) {
   const P = protocol.params;
   switch (protocol.kind) {
-    case 'eyes-sides': case 'light-latency': case 'phototaxis': return 1 + n;
+    case 'eyes-sides': case 'light-latency': case 'phototaxis': case 'eyespot-cilia': case 'mc-burst': return 1 + n;
+    case 'cr-startle': return 1 + P.otherDraws + n;
     case 'touch-startle': return 1 + P.otherDraws + n;
     case 'touch-startle-single': return 2 + n;
     case 'alphabet': return Object.keys(GLYPHS).length;
@@ -938,7 +1050,7 @@ export function runLab(D, { scrambles, protocols = PROTOCOLS, onProgress = () =>
   return {
     labVersion: LAB_VERSION,
     protocolJson: protocolJson(protocols),
-    model: { ...PARAMS, stepsPerSecond: STEPS_PER_SECOND },
+    model: { id: MODEL_V2.id, ...PARAMS, stepsPerSecond: STEPS_PER_SECOND },
     wiring: { cells: D.n.length, connections: D.e.length / 3, synapses },
     scrambles: {
       n: made.length ? Math.max(...[...needs.values()].map((s) => s.n)) : 0,
